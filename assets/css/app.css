@@ -388,3 +388,74 @@ details.acc[open]>summary{border-bottom:1px solid var(--trait);}
 .cam-actions{display:flex;gap:10px;flex-wrap:wrap;} .cam-actions .btn{flex:1;min-width:150px;} #cam-cap{flex:2;padding:16px;font-size:15px;}
 .cam-prog{min-height:0;} 
 @media (max-width:760px){.cam-scene{aspect-ratio:3/4;max-height:62vh;}.cam-cadre{inset:20% 6%;}}
+
+/* ====== v10 : mobile — menu en tiroir, connexion compacte ====== */
+.burger{display:none;align-items:center;justify-content:center;width:46px;height:46px;border-radius:14px;border:1.5px solid var(--trait-fort);background:linear-gradient(180deg,#fff,#F7F4EA);color:var(--marine);cursor:pointer;flex:none;box-shadow:var(--ombre-s);}
+.burger:hover{border-color:var(--rouge);color:var(--rouge-2);}
+.voile-menu{position:fixed;inset:0;background:rgba(7,24,65,.55);backdrop-filter:blur(2px);z-index:80;} .voile-menu[hidden]{display:none;}
+body.menu-ouvert{overflow:hidden;}
+.actions:empty{display:none;}
+@media (max-width:900px){
+  .appli{display:block;min-height:100vh;}
+  .zone{width:100%;}
+  .barre{position:fixed !important;top:0;right:0;bottom:0;left:auto;height:100vh;height:100dvh;width:min(310px,86vw);z-index:90;order:initial;border-top:0;border-left:4px solid var(--jaune);
+    transform:translateX(106%);transition:transform .28s var(--ease);box-shadow:-24px 0 56px rgba(5,15,45,.5);-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  .barre.ouvert{transform:none;}
+  .burger{display:inline-flex;}
+  .entete{flex-wrap:wrap;padding:12px 14px 10px;gap:10px;}
+  .entete .titre{flex:1;min-width:0;order:1;} .entete .burger{order:2;} .entete .actions{order:3;width:100%;} .entete .actions .btn{flex:1;}
+  .entete h1{font-size:20px;} .entete .reperes{display:none;}
+  .vue{padding:14px 12px 60px;}
+  .bandeau{padding:18px 16px;} .bandeau h2{font-size:21px;} .bandeau img{display:none;}
+  .grille{gap:12px;} .tuile{padding:16px;}
+  .tableau{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .outils input,.outils select{min-width:0;flex:1 1 100%;} 
+  .onglets{width:100%;overflow-x:auto;flex-wrap:nowrap;} .onglets button{white-space:nowrap;padding:9px 14px;}
+  .modale{border-radius:18px;max-height:94vh;} .modale .corps,.modale>h2,.pied-modale{padding-left:16px;padding-right:16px;} .pied-modale{flex-wrap:wrap;} .pied-modale .btn{flex:1;}
+  .toasts{left:10px;right:10px;bottom:10px;} .toast{max-width:none;}
+  .controle{grid-template-columns:1fr;} .poste-corps{padding:16px;} .poste-tete{padding:16px;}
+}
+@media (max-width:600px){
+  .entree{padding:5vh 8vw;}
+  .carte-entree{width:min(330px,84vw);height:min(486px,84vh);padding:16px 18px 12px;border-radius:22px;}
+  .carte-entree::before{left:22px;right:22px;}
+  .carte-entree .logo{max-height:96px;} .carte-entree .logo.petit{max-height:46px;margin-bottom:4px;}
+  .carte-entree h1{font-size:20px;} .carte-entree .sous{font-size:12px;margin-bottom:8px;}
+  .carte-entree .baseline{font-size:12.5px;margin-bottom:8px;line-height:1.35;} .pastille-etab{font-size:12px;margin-bottom:10px;padding:4px 12px 4px 8px;}
+  .carte-entree input{padding:9px 12px;font-size:16px;border-radius:11px;} .etiq-champ{font-size:11.5px;margin-bottom:3px;} .carte-entree .champ-bloc{margin-bottom:7px;}
+  .carte-entree .btn-bloc{padding:11px 14px;font-size:14px;}
+  .carte-entree .note-entree{font-size:9px;letter-spacing:.08em;margin:8px 0 6px;line-height:1.6;}
+  details.demo>summary{padding:8px;font-size:13px;} .demo-corps{padding:8px;} .demo-mdp{font-size:10.5px;} a.demo-compte{padding:5px 7px;} a.demo-compte b{font-size:10.5px;} a.demo-compte span{font-size:9.5px;}
+  .pied-entree .signature{font-size:11px;}
+  .orbite{width:760px;height:760px;}
+  .kpi .v{font-size:32px;}
+  .c4{grid-template-columns:1fr 1fr;}
+}
+@media (max-height:560px) and (max-width:900px){ .carte-entree .logo{display:none;} }
+
+/* ====== v11 : registre national, import de listes ====== */
+.modale.large{max-width:980px;}
+.chaine-resume{display:flex;gap:8px;flex-wrap:wrap;}
+.tuile select{max-width:100%;}
+.grille>*,.controle>*{min-width:0;}
+@media (max-width:900px){ .tuile{max-width:100%;} .tuile .tableau{max-width:100%;} .fiche{position:static !important;} }
+
+/* ====== v12 : accueil / connexion sur téléphone — marges ≥ ~1,2 cm de chaque côté, même espace en haut et en bas,
+   texte plus petit : le fond (carreaux, arcs) doit rester bien visible ====== */
+@media (max-width:600px){
+  .entree{height:100vh;height:100dvh;padding:0 max(40px,12vw);}
+  .carte-entree{width:100%;max-width:330px;height:min(500px,76vh);height:min(500px,76dvh);padding:14px 14px 10px;border-radius:20px;}
+  .carte-entree::before{left:20px;right:20px;height:4px;}
+  .carte-entree .logo{max-height:82px;margin-bottom:8px;} .carte-entree .logo.petit{max-height:42px;margin-bottom:3px;}
+  .carte-entree h1{font-size:18px;margin-bottom:1px;} .carte-entree .sous{font-size:11.5px;margin-bottom:6px;}
+  .carte-entree .baseline{font-size:11px;line-height:1.22;margin:0 0 6px;letter-spacing:0;}
+  .pastille-etab{font-size:11px;margin-bottom:8px;padding:3px 10px 3px 7px;} .pastille-etab::before{margin-right:22px;width:8px;height:8px;box-shadow:11px 0 0 var(--jaune-2),22px 0 0 var(--bleu);}
+  .carte-entree input{padding:8px 11px;font-size:15px;} .etiq-champ{font-size:11px;} .carte-entree .champ-bloc{margin-bottom:6px;}
+  .carte-entree .btn-bloc{padding:10px 12px;font-size:13px;border-radius:11px;}
+  .carte-entree .note-entree{font-size:8px;letter-spacing:.05em;line-height:1.4;margin:6px 0 4px;}
+  .carte-entree .signature,.pied-entree .signature{font-size:10.5px;}
+  details.demo{margin-top:7px;} details.demo>summary{padding:7px;font-size:12px;} .demo-corps{padding:7px;margin-top:6px;} .demo-mdp{font-size:10px;margin-bottom:4px;}
+  .demo-liste{gap:4px;} a.demo-compte{padding:4px 6px;line-height:1.15;} a.demo-compte b{font-size:9.5px;white-space:normal;} a.demo-compte span{font-size:8.5px;}
+  .pied-entree{margin-top:6px;padding-top:5px;} .lien-retour{font-size:12px;padding:2px 4px;}
+}
+@media (max-width:600px) and (max-height:700px){ .carte-entree{height:min(500px,84vh);height:min(500px,84dvh);} .carte-entree .logo{max-height:64px;} }
