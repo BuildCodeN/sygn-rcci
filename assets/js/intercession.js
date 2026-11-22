@@ -145,6 +145,14 @@
       if(av) av.photoFichier = 'assets/photos/exemple-2.jpg';
       d.meta.intercessionV5 = 1; B.tracer('mise à jour des noms', corr+' fiche(s) corrigée(s)'); B.sauver();
     }
+    if(!d.meta.intercessionV6){
+      // Mme DUPONT Angèle, épouse MARTIN : UNE fiche, identité d'état civil conservée (nom de naissance + nom d'épouse)
+      const A = d.membres.find(m => cle(m.nom+' '+m.prenoms) === cle('MARTIN Marie')), G = d.membres.find(m => cle(m.nom+' '+m.prenoms) === cle('DUPONT Angèle'));
+      if(G && A && G.id !== A.id) Registre.fusionner(G.id, A.id);
+      else if(A && !G){ A.nomEtatCivil = 'DUPONT Epse MARTIN Marie'; A.nom = 'DUPONT'; A.epouseDe = 'MARTIN'; A.civilite = 'Mme'; }
+      const n = Registre.fusionnerCertains();
+      d.meta.intercessionV6 = 1; B.tracer('correction des doublons', n+' fusion(s) certaine(s)'); B.sauver();
+    }
     if(d.meta.intercessionV2) return false;
     const ab = dioceseDe('Abidjan');
     if(ab) ['Secteur Nord','Secteur Sud','Secteur Centre'].forEach(n => { if(!d.secteurs.some(s => s.dioceseId === ab.id && norm(s.nom) === norm(n))) d.secteurs.push({id:B.uid('sec'), nom:n, dioceseId:ab.id}); });
@@ -159,8 +167,52 @@
     d.meta.intercessionV2 = 1; B.tracer('mise à jour intercession', 'secteurs d’Abidjan, responsable nationale, civilités'); B.sauver(); return true;
   }
 
+  /* ------------------------------------------------- activités du Renouveau (nationales) */
+  /** Retraite annuelle, pèlerinage national, formation publique : créées une fois, sans date (à fixer), modifiables. */
+  function activitesDuRenouveau(){
+    const d = B.d; if(d.meta.activitesRenouveau) return false;
+    ['Retraite annuelle','Pèlerinage national','Formation publique'].forEach(n => {
+      let t = d.typesActivite.find(x => norm(x.nom) === norm(n)); if(!t){ t = {id:B.uid('typ'), nom:n}; d.typesActivite.push(t); }
+      if(!d.activites.some(a => norm(a.intitule) === norm(n) && !a.demo))
+        d.activites.push({id:B.uid('act'), intitule:n, typeId:t.id, date:'', heure:'', lieu:'', statut:'en préparation', responsable:'', niveau:'national', modules:[]});
+    });
+    d.meta.activitesRenouveau = 1; B.tracer('activités du Renouveau', 'retraite annuelle, pèlerinage national, formation publique'); B.sauver(); return true;
+  }
+
+  /* ----------------------------------- données du ministère publiées CHIFFRÉES (version en ligne) */
+  const disponible = () => !!(window.DONNEES_CHIFFREES && !B.d.meta.intercession);
+  async function dechiffrer(code){
+    const C = window.DONNEES_CHIFFREES, b = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+    const brut = (code||'').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const k0 = await crypto.subtle.importKey('raw', new TextEncoder().encode(brut), 'PBKDF2', false, ['deriveKey']);
+    const k = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b(C.sel), iterations:C.iter, hash:'SHA-256'}, k0, {name:'AES-GCM', length:256}, false, ['decrypt']);
+    const clair = await crypto.subtle.decrypt({name:'AES-GCM', iv:b(C.iv)}, k, b(C.donnees));
+    return JSON.parse(new TextDecoder().decode(clair));
+  }
+  async function appliquerDonnees(p){
+    const d = B.d;
+    window.DONNEES_INTERCESSION = p.intercession; semer(); migrer();
+    (p.fonctions || []).forEach(f => { const m = d.membres.find(x => cle(x.nom+' '+x.prenoms) === cle(f.nom)); if(m) d.affectations.forEach(a => { if(a.membreId === m.id) a.fonction = f.fonction; }); });
+    for(const ph of (p.photos || [])){ const m = d.membres.find(x => cle(x.nom+' '+x.prenoms) === cle(ph.nom)); if(m){ const blob = await (await fetch(ph.data)).blob(); await Photos.enregistrer(m.id, blob); } }
+    (p.fusions || []).forEach(f => Registre.fusionnerParNoms(f.garde, f.retire)); Registre.fusionnerCertains();
+    B.tracer('données du ministère chargées', d.membres.length+' fiches'); B.sauver();
+  }
+  function demanderCode(X){
+    const {esc, $, modale, toast, redraw} = X;
+    const v = modale('Données du ministère', `<p class="petit" style="margin-top:0">Les listes (membres, composition des instances, participants aux formations) sont publiées <b>chiffrées</b> : personne ne peut les lire sans le code. Saisissez le code d’accès pour les charger dans cet appareil.</p>
+      <label class="petit" style="font-weight:700">Code d’accès</label><input type="text" id="cd-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX"><div id="cd-msg" class="petit" style="margin-top:8px"></div>`,
+      '<button class="btn btn-contour" id="cd-ann">Annuler</button><button class="btn btn-rouge" id="cd-ok">Charger les données</button>');
+    $('#cd-ann', v).onclick = () => v.remove();
+    $('#cd-ok', v).onclick = async () => {
+      const msg = $('#cd-msg', v), b = $('#cd-ok', v); b.disabled = true; msg.textContent = 'Déchiffrement…';
+      try { const p = await dechiffrer($('#cd-code', v).value); msg.textContent = 'Chargement des fiches…'; await appliquerDonnees(p); v.remove(); toast('Données du ministère chargées : '+B.d.membres.length+' fiches.'); redraw(); }
+      catch(e){ b.disabled = false; msg.innerHTML = '<span style="color:var(--rouge-2);font-weight:700">Code incorrect ou données illisibles.</span>'; }
+    };
+    $('#cd-code', v).focus();
+  }
+
   /* ------------------------------------------------------------------- interface */
-  const etat = {onglet:'gouvernance', organe:'national', q:'', fDio:'', annee:'', sel:new Set(), act:''};
+  const etat = {onglet:'gouvernance', organe:'national', q:'', fDio:'', fSec:'', annee:'', sel:new Set(), act:''};
   const ONGLETS = [['gouvernance','Gouvernance'],['composition','Composition'],['participants','Participants'],['activites','Activités'],['territoire','Territoire']];
   const organes = () => B.d.organes.slice().sort((a,b) => ['continental','national','coordination'].indexOf(a.code) - ['continental','national','coordination'].indexOf(b.code));
   const orgCode = c => B.d.organes.find(o => o.code === c);
@@ -174,7 +226,7 @@
     const {esc, $, modale, toast, redraw, nomComplet, nomAffiche, initiales, fdate, peut} = X;
     const admin = peut('creer');
     const d = B.d;
-    if(!d.organes.length){ v.innerHTML = '<div class="tuile vide"><b>Module non initialisé</b>Les fichiers de composition n’ont pas encore été importés.</div>'; return; }
+    if(!d.organes.length){ v.innerHTML = '<div class="tuile vide"><b>Aucune donnée du ministère dans cet appareil</b>Les compositions des instances et les listes de participants ne sont pas encore chargées.' + (disponible() && admin ? '<div style="margin-top:14px"><button class="btn btn-rouge" id="i-charger">Charger les données du ministère (code d’accès)</button></div>' : '') + '</div>'; if($('#i-charger')) $('#i-charger').onclick = () => demanderCode(X); return; }
     act.innerHTML = '';
     v.innerHTML = `<div class="onglets">${ONGLETS.map(([k,n]) => `<button data-t="${k}" class="${k===etat.onglet?'on':''}">${n}</button>`).join('')}</div><div id="i-corps"></div>`;
     v.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { etat.onglet = b.dataset.t; redraw(); });
@@ -286,15 +338,17 @@
       const q = norm(etat.q), acts = actsInterc().filter(a => d.participations.some(p => p.activiteId === a.id));
       let l = d.membres.filter(m => estParticipant(m.id));
       if(etat.fDio) l = l.filter(m => m.dioceseId === etat.fDio);
+      if(etat.fSec) l = l.filter(m => (m.secteurId || ((B.par('paroisses', m.paroisseId)||{}).secteurId)) === etat.fSec);
       if(etat.annee) l = l.filter(m => prtsDe(m.id).some(p => p.activiteId === etat.annee));
       if(q) l = l.filter(m => norm(nomComplet(m)+' '+(m.nomEtatCivil||'')+' '+B.nom('paroisses', m.paroisseId)+' '+(m.tel||'')).includes(q));
       const gr = new Map();
-      l.forEach(m => { const dk = B.nom('dioceses', m.dioceseId) || 'Diocèse non renseigné', pk = B.nom('paroisses', m.paroisseId) || 'Paroisse non renseignée';
+      l.forEach(m => { const dk = B.nom('dioceses', m.dioceseId) || 'Diocèse non renseigné', pk = (B.nom('paroisses', m.paroisseId) || 'Paroisse non renseignée') + (((B.par('secteurs', m.secteurId || ((B.par('paroisses', m.paroisseId)||{}).secteurId))||{}).nom) ? ' — '+B.par('secteurs', m.secteurId || ((B.par('paroisses', m.paroisseId)||{}).secteurId)).nom : '');
         if(!gr.has(dk)) gr.set(dk, new Map()); const pm = gr.get(dk); if(!pm.has(pk)) pm.set(pk, []); pm.get(pk).push(m); });
       const ouvert = q || etat.fDio ? ' open' : '';
-      const prob = (d.meta.doublonsProbables||[]).filter(([a,b]) => B.par('membres', a) && B.par('membres', b));
+      const prob = Registre.doublons();
       corps.innerHTML = `<div class="outils"><input type="search" id="p-q" placeholder="Rechercher un participant, une paroisse, un contact…" value="${esc(etat.q)}">
         <select id="p-d">${X.options('dioceses', etat.fDio, 'Tous les diocèses')}</select>
+        <select id="p-s">${X.options('secteurs', etat.fSec, 'Tous les secteurs')}</select>
         <select id="p-a"><option value="">Toutes les formations</option>${acts.map(a => `<option value="${a.id}" ${a.id===etat.annee?'selected':''}>${esc(a.intitule)}</option>`).join('')}</select>
         <button class="btn btn-contour btn-s" id="p-csv">Exporter (CSV)</button><button class="btn btn-contour btn-s" id="p-pdf">Imprimer / PDF</button>${admin?`<button class="btn btn-rouge btn-s" id="p-insc" ${etat.sel.size?'':'disabled'}>Inscrire la sélection (${etat.sel.size}) à une activité</button>`:''}</div>
         <div class="grille c3" style="margin-bottom:16px"><div class="tuile kpi b"><div class="k">Participants affichés</div><div class="v">${l.length}</div><div class="note">sur ${new Set(d.participations.map(p => p.membreId)).size} au total</div></div>
@@ -305,19 +359,20 @@
             <table class="tableau"><tbody>${ms.sort((a,b) => a.nom.localeCompare(b.nom)).map(m => `<tr class="cliquable" data-m="${m.id}"><td style="width:34px"><input type="checkbox" data-s="${m.id}" ${etat.sel.has(m.id)?'checked':''} style="width:auto"></td>
               <td><div class="cellule-nom">${X.avatar(m)}<b>${esc(nomAffiche(m))}</b></div></td><td>${esc(m.profession||'')}</td><td class="mono">${esc(m.tel||'')}</td><td>${prtsDe(m.id).map(p => chip((((B.par('activites', p.activiteId)||{}).annee)||'?')+(((B.par('activites', p.activiteId)||{}).annee==='1')?'ère':'ème')+' année', 'p-ok')).join(' ')}</td></tr>`).join('')}</tbody></table></details>`).join('')}</details>`).join('')
           : '<div class="tuile vide"><b>Aucun participant</b>Ajustez la recherche ou les filtres.</div>'}
-        ${prob.length ? `<div class="tuile" style="margin-top:18px"><h2>Doublons probables</h2><div class="sous">Noms très proches dans un même diocèse : à confirmer avant de fusionner (rien n’est fusionné automatiquement).</div>
-          ${prob.slice(0, 40).map(([a, b]) => { const A = B.par('membres', a), Bm = B.par('membres', b); return `<div class="ligne-fiche"><span><b>${esc(nomComplet(A))}</b> <span class="muet">↔</span> <b>${esc(nomComplet(Bm))}</b> <span class="muet petit">(${esc(B.nom('dioceses', A.dioceseId))})</span></span>${admin?`<span><button class="btn btn-contour btn-s" data-fu="${a}|${b}">Fusionner</button> <button class="btn btn-contour btn-s" data-ig="${a}|${b}">Ce sont deux personnes</button></span>`:''}</div>`; }).join('')}</div>` : ''}`;
+        ${prob.length ? `<div class="tuile" style="margin-top:18px"><h2>Doublons à vérifier</h2><div class="sous">Aucune fiche n’est fusionnée sur une simple ressemblance de noms : vous décidez, et chaque fusion peut être annulée.</div>
+          ${prob.slice(0, 40).map(p => `<div class="ligne-fiche"><span><b>${esc(nomAffiche(p.a))}</b> <span class="muet">↔</span> <b>${esc(nomAffiche(p.b))}</b> <span class="pastille ${p.niveau==='certain'?'p-ok':'p-warn'}">${p.niveau==='certain'?'très probable':'probable'} · ${p.score} %</span> <span class="muet petit">${esc(p.raison)}</span></span>${admin?`<span style="white-space:nowrap"><button class="btn btn-contour btn-s" data-fu="${p.a.id}|${p.b.id}">Examiner et fusionner</button> <button class="btn btn-contour btn-s" data-ig="${p.a.id}|${p.b.id}">Deux personnes</button></span>`:''}</div>`).join('')}</div>` : ''}`;
       corps.insertAdjacentHTML('beforeend', historiqueFusions());
       corps.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => annulerFusion(b.dataset.undo));
       $('#p-q').oninput = e => { etat.q = e.target.value; participants(); const i = $('#p-q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
       $('#p-d').onchange = e => { etat.fDio = e.target.value; participants(); };
+      $('#p-s').onchange = e => { etat.fSec = e.target.value; participants(); };
       $('#p-csv').onclick = () => X.exporter.csv('participants', X.COLS_MEMBRE, l.map(X.ligneMembre));
       $('#p-pdf').onclick = () => X.exporter.imprimer('Participants aux formations', l.length+' participant(s)', ['Nom et prénoms','Diocèse','Paroisse','Fonction','Contact'], l.slice().sort((x, y) => x.nom.localeCompare(y.nom)).map(m => [nomAffiche(m), B.nom('dioceses', m.dioceseId), B.nom('paroisses', m.paroisseId), m.profession||'', m.tel||'']));
       $('#p-a').onchange = e => { etat.annee = e.target.value; participants(); };
       corps.querySelectorAll('tr[data-m]').forEach(tr => tr.onclick = ev => { if(ev.target.matches('input')) return; fiche(tr.dataset.m); });
       corps.querySelectorAll('[data-s]').forEach(c => c.onchange = () => { c.checked ? etat.sel.add(c.dataset.s) : etat.sel.delete(c.dataset.s); const b = $('#p-insc'); if(b){ b.disabled = !etat.sel.size; b.textContent = 'Inscrire la sélection ('+etat.sel.size+') à une activité'; } });
       corps.querySelectorAll('[data-fu]').forEach(b => b.onclick = () => fusionner(...b.dataset.fu.split('|')));
-      corps.querySelectorAll('[data-ig]').forEach(b => b.onclick = () => { const [x, y] = b.dataset.ig.split('|'); d.meta.doublonsProbables = (d.meta.doublonsProbables||[]).filter(p => !(p[0]===x && p[1]===y)); B.sauver(); participants(); });
+      corps.querySelectorAll('[data-ig]').forEach(b => b.onclick = () => { const [x, y] = b.dataset.ig.split('|'); Registre.distinctes(x, y); participants(); });
       if(admin && $('#p-insc')) $('#p-insc').onclick = () => {
         const cibles = actsInterc(); if(!cibles.length) return toast('Créez d’abord une activité.', true);
         const v2 = modale('Inscrire '+etat.sel.size+' personne(s)', `<label class="petit" style="font-weight:700">Activité</label><select id="x-act">${cibles.map(a => `<option value="${a.id}">${esc(a.intitule)}</option>`).join('')}</select>`, '<button class="btn btn-contour" id="x-ann">Annuler</button><button class="btn btn-rouge" id="x-ok">Inscrire</button>');
@@ -341,18 +396,8 @@
       $('#fu-ok', v2).onclick = () => { const g = v2.querySelector('input[name=garde]:checked').value; v2.remove(); executerFusion(g, g === a ? b : a); };
     }
     function executerFusion(g, r){
-      const S = B.par('membres', g), R = B.par('membres', r); if(!S || !R) return;
-      const rec = {id:B.uid('fus'), date:new Date().toISOString(), gardeId:g, retire:JSON.parse(JSON.stringify(R)), sourcesAvant:(S.sources||[]).slice(), champs:{}, parts:[], partsSupp:[], affs:[], affsSupp:[], pres:[], presSupp:[], photo:''};
-      ['tel','whatsapp','email','profession','paroisseId','dioceseId','secteurId','civilite','dateNaissance','sexe'].forEach(c => { if(!S[c] && R[c]){ S[c] = R[c]; rec.champs[c] = R[c]; } });
-      S.sources = [...new Set([...(S.sources||[]), ...(R.sources||[]), 'Fusion de doublon'])];
-      d.participations = d.participations.filter(p => { if(p.membreId !== r) return true; if(d.participations.some(x => x.activiteId === p.activiteId && x.membreId === g)){ rec.partsSupp.push(p); return false; } p.membreId = g; rec.parts.push(p.id); return true; });
-      d.affectations = d.affectations.filter(x => { if(x.membreId !== r) return true; if(d.affectations.some(y => y !== x && y.membreId === g && y.organeId === x.organeId && y.dioceseId === x.dioceseId)){ rec.affsSupp.push(x); return false; } x.membreId = g; rec.affs.push(x.id); return true; });
-      d.presences = d.presences.filter(x => { if(x.membreId !== r) return true; if(d.presences.some(y => y !== x && y.membreId === g && y.activiteId === x.activiteId)){ rec.presSupp.push(x); return false; } x.membreId = g; rec.pres.push(x.id); return true; });
-      if(!Photos.url(S) && Photos.url(R)){ if(R.photoFichier){ S.photoFichier = R.photoFichier; rec.photo = 'fichier'; } else { Photos.deplacer(r, g); rec.photo = 'idb'; } }
-      d.membres = d.membres.filter(m => m.id !== r);
-      d.meta.doublonsProbables = (d.meta.doublonsProbables||[]).filter(p => p[0] !== r && p[1] !== r);
-      (d.meta.fusions = d.meta.fusions || []).push(rec);
-      B.tracer('fusion de doublon', nomComplet(R)+' → '+nomComplet(S)); B.sauver(); toast('Fiches fusionnées : « '+nomAffiche(S)+' » est conservée.'); redraw();
+      const S = B.par('membres', g); if(!Registre.fusionner(g, r)) return;
+      toast('Fiches fusionnées : « '+nomAffiche(S)+' » est conservée.'); redraw();
     }
     function annulerFusion(id){
       const rec = (d.meta.fusions||[]).find(x => x.id === id); if(!rec) return;
@@ -381,8 +426,9 @@
         <div class="tuile" style="padding:0;overflow:hidden"><table class="tableau"><thead><tr><th>Activité</th><th>Niveau</th><th>Date</th><th>Inscrits</th><th>Présents</th><th>Statut</th><th></th></tr></thead><tbody>
         ${l.length ? l.map(a => `<tr><td><b>${esc(a.intitule)}</b><div class="petit muet">${esc(B.nom('typesActivite', a.typeId))}${a.lieu?' · '+esc(a.lieu):''}</div></td><td>${esc(a.niveau||'—')}</td><td>${esc(a.date?fdate(a.date):'à fixer')}</td>
           <td><b>${d.participations.filter(p => p.activiteId === a.id).length}</b></td><td><b>${d.presences.filter(p => p.activiteId === a.id).length}</b></td><td>${X.pStatut(a.statut)}</td>
-          <td style="white-space:nowrap"><button class="btn btn-contour btn-s" data-li="${a.id}">Liste</button>${admin?` <button class="btn btn-contour btn-s" data-ed="${a.id}">Modifier</button> <button class="btn btn-contour btn-s" data-ct="${a.id}">Contrôler</button>`:''}</td></tr>`).join('') : '<tr><td colspan="7"><div class="vide"><b>Aucune activité</b></div></td></tr>'}</tbody></table></div><div id="a-detail"></div>`;
+          <td style="white-space:nowrap"><button class="btn btn-contour btn-s" data-li="${a.id}">Liste</button>${admin?` <button class="btn btn-contour btn-s" data-im="${a.id}">Importer une liste</button> <button class="btn btn-contour btn-s" data-ed="${a.id}">Modifier</button> <button class="btn btn-contour btn-s" data-ct="${a.id}">Contrôler</button>`:''}</td></tr>`).join('') : '<tr><td colspan="7"><div class="vide"><b>Aucune activité</b></div></td></tr>'}</tbody></table></div><div id="a-detail"></div>`;
       corps.querySelectorAll('[data-li]').forEach(b => b.onclick = () => liste(b.dataset.li));
+      corps.querySelectorAll('[data-im]').forEach(b => b.onclick = () => Registre.importer(X, b.dataset.im));
       corps.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => X.modifierActivite(B.par('activites', b.dataset.ed)));
       corps.querySelectorAll('[data-ct]').forEach(b => b.onclick = () => X.controler(b.dataset.ct));
       if(admin) $('#a-new').onclick = formAct;
@@ -423,5 +469,5 @@
           <table class="tableau"><tbody>${d.paroisses.filter(p => p.dioceseId === x.id).sort((a,b) => a.nom.localeCompare(b.nom)).map(p => `<tr><td>${esc(p.nom)}</td><td style="text-align:right"><b>${d.membres.filter(m => m.paroisseId === p.id && estParticipant(m.id)).length}</b> participant(s)</td></tr>`).join('')}</tbody></table></details>`).join('')}</div>`;
     }
   }
-  window.Intercession = {semer, migrer, vue, decouper};
+  window.Intercession = {ouvrirOnglet: o => { etat.onglet = o; }, semer, migrer, vue, decouper, activitesDuRenouveau, disponible, demanderCode};
 })();
