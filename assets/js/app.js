@@ -20,7 +20,7 @@
   const svg = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ico[n]}</svg>`;
   const PAGES = [
     {id:'accueil', nom:'Tableau de bord', sur:'Vue d’ensemble', groupe:'Pilotage'},
-    {id:'membres', nom:'Membres', sur:'Base nationale', groupe:'Base nationale'},
+    {id:'membres', nom:'Registre national', sur:'Membres du Renouveau', groupe:'Base nationale'},
     {id:'activites', nom:'Activités', sur:'Rencontres et événements', groupe:'Terrain'},
     {id:'controle', nom:'Contrôle', sur:'Poste de contrôle', groupe:'Terrain'},
     {id:'intercession', nom:'Intercession', sur:'Ministère d’intercession', groupe:'Intercession'},
@@ -29,7 +29,7 @@
     {id:'ref', nom:'Listes de référence', sur:'Administration', groupe:'Administration'}
   ];
   let user = null, page = 'accueil', horlogeTimer = null;
-  const etat = { membreSel:null, recherche:'', fDio:'', fMin:'', refOnglet:'dioceses', stat:'',
+  const etat = { membreSel:null, recherche:'', refSec:'', fDio:'', fSec:'', fMin:'', refOnglet:'dioceses', stat:'',
     ctrl:{activiteId:'', type:'cni', nom:'', numero:'', naissance:'', mem:true, res:null, choisi:null, valide:null, nouveau:false, auto:false, scan:false, scanAuto:false, scanNom:'', scanPrenoms:''} };
 
   /* ------------------------------------------------------------ utilitaires */
@@ -77,7 +77,9 @@
     if(e) return e.id;
     const o = B.ajouter(coll, Object.assign({nom}, extra||{})); B.tracer('création '+coll, nom); return o.id;
   }
-  const lieu = m => [B.nom('dioceses',m.dioceseId), B.nom('secteurs',m.secteurId)].filter(Boolean).join(' · ') || '—';
+  /** Secteur d'une personne : celui de sa fiche, sinon celui de sa paroisse (structure : diocèse → secteur → paroisse → membre). */
+  const secteurIdDe = m => m.secteurId || ((B.par('paroisses', m.paroisseId)||{}).secteurId) || '';
+  const lieu = m => [B.nom('dioceses',m.dioceseId), B.nom('secteurs',secteurIdDe(m))].filter(Boolean).join(' · ') || '—';
   const fdate = s => s ? new Date(s+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}) : '—';
   const heure = iso => new Date(iso).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   const mesMembres = () => R.membresVisibles(user);
@@ -154,7 +156,17 @@
       <div><div class="heure" id="h-heure">${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div><div class="date"><b>${now.toLocaleDateString('fr-FR',{weekday:'long'})}</b> ${now.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div></div></div>
       <div class="semaine">${j.map((x,i)=>`<span class="${i===auj?'auj':''}">${x}</span>`).join('')}</div></div>`;
   }
+  /** Menu latéral en tiroir sur téléphone et tablette (≤ 900 px) : ouvert/fermé par le bouton, le voile ou la touche Échap. */
+  function menu(ouvrir){
+    const b = $('#barre'), vo = $('#voile-menu'), bt = $('#b-menu');
+    b.classList.toggle('ouvert', !!ouvrir); vo.hidden = !ouvrir; document.body.classList.toggle('menu-ouvert', !!ouvrir);
+    if(bt){ bt.setAttribute('aria-expanded', ouvrir ? 'true' : 'false'); bt.setAttribute('aria-label', ouvrir ? 'Fermer le menu' : 'Ouvrir le menu'); }
+  }
+  document.addEventListener('click', e => { if(e.target && e.target.id === 'voile-menu') menu(false); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && $('#barre') && $('#barre').classList.contains('ouvert')) menu(false); });
+  window.addEventListener('resize', () => { if(window.innerWidth > 900 && $('#barre') && $('#barre').classList.contains('ouvert')) menu(false); });
   function dessiner(){
+    menu(false);
     const autor = PAGES.filter(p => R.peutPage(user, p.id));
     if(!R.peutPage(user, page)) page = autor[0].id;
     const groupes = [...new Set(autor.map(p=>p.groupe))];
@@ -172,7 +184,9 @@
     clearInterval(horlogeTimer);
     horlogeTimer = setInterval(() => { const h=$('#h-heure'); if(h) h.textContent = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); }, 20000);
     const p = PAGES.find(x=>x.id===page);
-    $('#entete').innerHTML = `<div class="titre"><div class="reperes"><i></i><i></i><i></i><i></i></div><div><div class="sur">${esc(p.sur)}</div><h1>${esc(p.nom)}</h1></div></div><div class="actions" id="actions"></div>`;
+    $('#entete').innerHTML = `<div class="titre"><div class="reperes"><i></i><i></i><i></i><i></i></div><div><div class="sur">${esc(p.sur)}</div><h1>${esc(p.nom)}</h1></div></div><div class="actions" id="actions"></div>
+      <button class="burger" id="b-menu" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="barre"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`;
+    $('#b-menu').onclick = () => menu($('#barre').classList.contains('ouvert') ? false : true);
     $('#vue').innerHTML = '';
     ({accueil:vueAccueil, membres:vueMembres, activites:vueActivites, controle:vueControle, stats:vueStats, utilisateurs:vueUtilisateurs, ref:vueRef,
       intercession:(v, a) => Intercession.vue(v, a, {esc, $, modale, toast, redraw:dessiner, nomComplet, nomAffiche, initiales, fdate, peut, options, pStatut, controler, modifierMembre:formMembre, avatar, exporter:Exports, COLS_MEMBRE, ligneMembre, imprimerFiche, choisirPhoto, modifierActivite:formActivite, civilites:CIVILITES})})[page]($('#vue'), $('#actions'));
@@ -200,7 +214,8 @@
     }
     const parDio = d.dioceses.map(x=>({n:x.nom, v:mm.filter(m=>m.dioceseId===x.id).length})).filter(x=>user.role==='admin'||x.v);
     const max = Math.max(1,...parDio.map(x=>x.v)), h = new Date().getHours();
-    v.innerHTML = `
+    const tuileDonnees = (user.role === 'admin' && Intercession.disponible()) ? `<div class="tuile" style="margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap"><div><h2>Données du ministère d’intercession</h2><div class="sous" style="margin:0">Les listes sont publiées chiffrées : elles ne sont pas encore dans cet appareil.</div></div><button class="btn btn-rouge" id="b-donnees">Charger avec le code d’accès</button></div>` : '';
+    v.innerHTML = `${tuileDonnees}
       <div class="bandeau"><div><div class="sur">${esc(R.role(user).nom)}${R.libellePortee(user)?' · '+esc(R.libellePortee(user)):''}</div>
         <h2>${h<18?'Bonjour':'Bonsoir'}, ${esc(user.nom)}</h2><p>${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
         <div class="raccourcis">${R.peutPage(user,'controle')?'<button class="btn btn-rouge" data-go="controle">Ouvrir le poste de contrôle</button>':''}${R.peutPage(user,'membres')?'<button class="btn btn-contour" data-go="membres">Consulter les membres</button>':''}</div></div>
@@ -218,15 +233,17 @@
           ${d.activites.length ? d.activites.slice(-5).reverse().map(a=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid var(--trait)"><div><b>${esc(a.intitule)}</b><div class="petit muet">${esc(a.lieu||'')}</div></div>${pStatut(a.statut)}</div>`).join('') : '<div class="vide"><b>Aucune activité</b>Aucune activité n’est encore créée.</div>'}</div>
       </div>`;
     v.querySelectorAll('[data-go]').forEach(b => b.onclick = () => aller(b.dataset.go));
+    if($('#b-donnees')) $('#b-donnees').onclick = () => Intercession.demanderCode({esc, $, modale, toast, redraw:dessiner});
   }
 
   /* ------------------------------------------------------------------ membres */
   function vueMembres(v, act){
-    if(peut('creer')){ act.innerHTML = '<button class="btn btn-contour" id="b-ip">Importer des photos</button><button class="btn btn-rouge" id="b-nv">+ Nouveau membre</button>'; $('#b-nv').onclick = () => formMembre(); $('#b-ip').onclick = importerPhotos; }
+    if(peut('creer')){ act.innerHTML = (R.peutPage(user,'intercession') ? '<button class="btn btn-contour" id="b-dbl">Doublons ('+Registre.doublons().length+')</button>' : '')+'<button class="btn btn-contour" id="b-ip">Importer des photos</button><button class="btn btn-rouge" id="b-nv">+ Nouveau membre</button>'; $('#b-nv').onclick = () => formMembre(); $('#b-ip').onclick = importerPhotos; if($('#b-dbl')) $('#b-dbl').onclick = () => { Intercession.ouvrirOnglet('participants'); aller('intercession'); }; }
     const d = B.d, base = mesMembres();
     v.innerHTML = `<div class="grille c21" style="align-items:start">
       <div><div class="outils"><input type="search" id="q" placeholder="Rechercher : nom, prénom, téléphone, matricule…" value="${esc(etat.recherche)}">
         <select id="fd" style="max-width:200px">${options('dioceses',etat.fDio,'Tous les diocèses')}</select>
+        <select id="fs" style="max-width:200px">${options('secteurs',etat.fSec,'Tous les secteurs')}</select>
         <select id="fm" style="max-width:220px">${options('ministeres',etat.fMin,'Tous les ministères')}</select>
         <button class="btn btn-contour btn-s" id="x-csv">Exporter (CSV)</button><button class="btn btn-contour btn-s" id="x-pdf">Imprimer / PDF</button></div>
         <div class="tuile" style="padding:0;overflow:hidden"><table class="tableau"><thead><tr><th>Membre</th><th>Matricule</th><th>Implantation</th><th>Ministère</th></tr></thead><tbody id="tm"></tbody></table></div></div>
@@ -234,7 +251,7 @@
     let courant = [];
     const maj = () => {
       const q = Identite.norm(etat.recherche);
-      const tout = base.filter(m => (!etat.fDio||m.dioceseId===etat.fDio) && (!etat.fMin||m.ministereId===etat.fMin) && (!q || Identite.norm(nomComplet(m)+' '+m.tel+' '+m.matricule).includes(q)));
+      const tout = base.filter(m => (!etat.fDio||m.dioceseId===etat.fDio) && (!etat.fSec||secteurIdDe(m)===etat.fSec) && (!etat.fMin||m.ministereId===etat.fMin) && (!q || Identite.norm(nomComplet(m)+' '+m.tel+' '+m.matricule).includes(q)));
       courant = tout; const l = tout.slice(0,300);
       $('#tm').innerHTML = l.length ? l.map(m=>`<tr class="cliquable ${m.id===etat.membreSel?'sel':''}" data-id="${m.id}"><td><div class="cellule-nom">${avatar(m)}<div><div class="n">${esc(nomAffiche(m))}</div><div class="s">${esc(m.tel||'')}</div></div></div></td><td class="mono">${esc(m.matricule)}</td><td>${esc(lieu(m))}</td><td>${esc(B.nom('ministeres',m.ministereId)||'—')}</td></tr>`).join('')
         : `<tr><td colspan="4"><div class="vide"><b>Aucun membre</b>${base.length?'Aucun résultat pour cette recherche.':'Aucun membre dans votre périmètre pour l’instant.'}</div></td></tr>`;
@@ -266,10 +283,11 @@
       $('#b-imp').onclick = () => imprimerFiche(m);
       if($('#b-pho')) $('#b-pho').onclick = () => choisirPhoto(m);
       if($('#b-mod')) $('#b-mod').onclick = () => formMembre(m);
-      if($('#b-sup')) $('#b-sup').onclick = () => { if(confirm('Supprimer définitivement cette fiche et ses présences ?')){ B.d.presences = B.d.presences.filter(p=>p.membreId!==m.id); B.retirer('membres', m.id); B.tracer('suppression membre', m.matricule); B.sauver(); etat.membreSel=null; dessiner(); } };
+      if($('#b-sup')) $('#b-sup').onclick = () => { if(confirm('Supprimer définitivement cette fiche et ses présences ?')){ B.d.presences = B.d.presences.filter(p=>p.membreId!==m.id); B.d.participations = B.d.participations.filter(p=>p.membreId!==m.id); B.d.affectations = B.d.affectations.filter(a=>a.membreId!==m.id); B.retirer('membres', m.id); B.tracer('suppression membre', m.matricule); B.sauver(); etat.membreSel=null; dessiner(); } };
     };
     $('#q').oninput = e => { etat.recherche = e.target.value; maj(); };
     $('#fd').onchange = e => { etat.fDio = e.target.value; maj(); };
+    $('#fs').onchange = e => { etat.fSec = e.target.value; maj(); };
     $('#fm').onchange = e => { etat.fMin = e.target.value; maj(); };
     $('#x-csv').onclick = () => Exports.csv('membres', COLS_MEMBRE, courant.map(ligneMembre));
     $('#x-pdf').onclick = () => Exports.imprimer('Liste des membres', courant.length+' membre(s)', COLS_MEMBRE.filter((_, i) => [1,2,4,5,7,8,11].includes(i)), courant.map(m => { const L = ligneMembre(m); return [1,2,4,5,7,8,11].map(i => L[i]); }));
@@ -289,7 +307,7 @@
         <div><label>WhatsApp</label><input type="tel" id="m-wa" value="${esc(n.whatsapp||'')}"></div>
         <div class="large"><label>E-mail</label><input type="email" id="m-em" value="${esc(n.email||'')}"></div>
         <div><label>Diocèse</label><select id="m-dio">${options('dioceses',n.dioceseId)}</select></div>
-        ${champListe('m-sec','Secteur (Abidjan) — saisir ou choisir','secteurs',nomDe('secteurs',n.secteurId),sect)}
+        ${champListe('m-sec','Secteur (Abidjan : Nord, Sud, Centre)','secteurs',nomDe('secteurs',n.secteurId),sect)}
         ${champListe('m-par','Paroisse — saisir ou choisir','paroisses',nomDe('paroisses',n.paroisseId),sect)}
         ${champListe('m-min','Ministère — saisir ou choisir','ministeres',nomDe('ministeres',n.ministereId))}
         ${champListe('m-pos','Poste de responsabilité — saisir ou choisir','postes',nomDe('postes',n.posteId))}
@@ -306,8 +324,12 @@
       if(!nom || !pre) return toast('Nom et prénoms sont obligatoires.', true);
       const dio = $('#m-dio',v).value, sec = $('#m-sec',v).value.trim(), par = $('#m-par',v).value.trim();
       if((sec || par) && !dio) return toast('Choisissez d’abord le diocèse pour saisir un secteur ou une paroisse.', true);
-      const secId = resoudre('secteurs', sec, {dioceseId:dio});
+      // Secteurs : seuls ceux qui existent (Abidjan : Nord, Sud, Centre). Un nouveau secteur s'ajoute dans « Listes de référence ».
+      let secId = '';
+      if(sec){ const s0 = B.d.secteurs.find(x => x.dioceseId === dio && Identite.norm(x.nom) === Identite.norm(sec)); if(!s0) return toast('Secteur inconnu pour ce diocèse. Secteurs possibles : '+(B.d.secteurs.filter(x => x.dioceseId === dio && !x.demo).map(x => x.nom).join(', ')||'aucun')+'.', true); secId = s0.id; }
       const parId = resoudre('paroisses', par, {dioceseId:dio});
+      if(!secId && parId){ const p0 = B.par('paroisses', parId); if(p0 && p0.secteurId) secId = p0.secteurId; }          // le secteur suit la paroisse
+      if(secId && parId){ const p1 = B.par('paroisses', parId); if(p1 && !p1.secteurId){ p1.secteurId = secId; B.sauver(); } }  // et la paroisse reçoit son secteur
       const o = {civilite:$('#m-civ',v).value, epouseDe:$('#m-epo',v).value.trim().toUpperCase(), nom:nom.toUpperCase(), prenoms:pre, dateNaissance:$('#m-nai',v).value, sexe:$('#m-sex',v).value, tel:$('#m-tel',v).value.trim(), whatsapp:$('#m-wa',v).value.trim(), email:$('#m-em',v).value.trim(),
         dioceseId:dio, secteurId:secId, paroisseId:parId, ministereId:resoudre('ministeres', $('#m-min',v).value), posteId:resoudre('postes', $('#m-pos',v).value), profession:$('#m-pro',v).value.trim()};
       if(!m){
@@ -330,10 +352,11 @@
     v.innerHTML = `<div class="tuile" style="padding:0;overflow:hidden"><table class="tableau"><thead><tr><th>Activité</th><th>Date</th><th>Lieu</th><th>Présents</th><th>Statut</th>${gere?'<th></th>':''}</tr></thead><tbody>
       ${d.activites.length ? d.activites.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(a=>`<tr><td><b>${esc(a.intitule)}</b><div class="petit muet">${esc(B.nom('typesActivite',a.typeId))}${a.responsable?' · Resp. '+esc(a.responsable):''}</div></td><td>${esc(fdate(a.date))}<div class="petit muet">${esc(a.heure||'')}</div></td><td>${esc(a.lieu||'—')}</td><td><b>${d.presences.filter(p=>p.activiteId===a.id).length}</b></td>
         <td>${gere?`<select data-st="${a.id}" style="padding:6px 8px;width:auto">${B.STATUTS.map(s=>`<option ${s===a.statut?'selected':''}>${s}</option>`).join('')}</select>`:pStatut(a.statut)}</td>
-        ${gere?`<td style="white-space:nowrap"><button class="btn btn-contour btn-s" data-ed="${a.id}">Modifier</button> <button class="btn btn-contour btn-s" data-ct="${a.id}">Contrôler</button> <button class="btn btn-danger btn-s" data-del="${a.id}">✕</button></td>`:''}</tr>`).join('')
+        ${gere?`<td style="white-space:nowrap"><button class="btn btn-contour btn-s" data-im="${a.id}">Importer une liste</button> <button class="btn btn-contour btn-s" data-ed="${a.id}">Modifier</button> <button class="btn btn-contour btn-s" data-ct="${a.id}">Contrôler</button> <button class="btn btn-danger btn-s" data-del="${a.id}">✕</button></td>`:''}</tr>`).join('')
         : `<tr><td colspan="6"><div class="vide"><b>Aucune activité</b>Une activité doit exister avant d’ouvrir le contrôle des présences.</div></td></tr>`}
       </tbody></table></div>`;
     v.querySelectorAll('[data-st]').forEach(s => s.onchange = () => { const a=B.par('activites',s.dataset.st); a.statut=s.value; B.tracer('statut activité', a.intitule+' → '+a.statut); B.sauver(); dessiner(); });
+    v.querySelectorAll('[data-im]').forEach(b => b.onclick = () => Registre.importer({esc, $, modale, toast, redraw:dessiner}, b.dataset.im));
     v.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => formActivite(B.par('activites', b.dataset.ed)));
     v.querySelectorAll('[data-ct]').forEach(b => b.onclick = () => { etat.ctrl.activiteId = b.dataset.ct; aller('controle'); });
     v.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if(confirm('Supprimer cette activité et ses présences ?')){ B.d.presences=B.d.presences.filter(p=>p.activiteId!==b.dataset.del); B.retirer('activites',b.dataset.del); dessiner(); } });
@@ -352,7 +375,7 @@
     $('#a-ann',v).onclick = () => v.remove();
     $('#a-ok',v).onclick = () => {
       const i = $('#a-int',v).value.trim(), dt = $('#a-dat',v).value;
-      if(!i || (!dt && n.ministere!=='intercession')) return toast('Intitulé et date obligatoires.', true);
+      if(!i || (!dt && !a && n.ministere!=='intercession')) return toast('Intitulé et date obligatoires.', true);
       const o = {intitule:i, typeId:resoudre('typesActivite', $('#a-typ',v).value), date:dt, heure:$('#a-heu',v).value.trim(), lieu:$('#a-lie',v).value.trim(), statut:$('#a-st',v).value, responsable:$('#a-res',v).value.trim()};
       if(a){ Object.assign(a, o); B.tracer('modification activité', i); B.sauver(); } else { B.ajouter('activites', o); B.tracer('création activité', i); B.sauver(); }
       v.remove(); dessiner();
@@ -607,19 +630,27 @@
 
   /* ---------------------------------------------------------- listes référence */
   function vueRef(v, act){
-    act.innerHTML = '<button class="btn btn-contour" id="b-sv">Sauvegarder la base</button> <button class="btn btn-contour" id="b-rs">Restaurer</button>';
+    act.innerHTML = '<button class="btn btn-contour" id="b-coh">Contrôler la cohérence</button><button class="btn btn-contour" id="b-sv">Sauvegarder la base</button> <button class="btn btn-contour" id="b-rs">Restaurer</button>';
+    $('#b-coh').onclick = () => Registre.afficherCoherence({modale});
     $('#b-sv').onclick = () => { const u=URL.createObjectURL(new Blob([B.exporter()],{type:'application/json'})); const e=document.createElement('a'); e.href=u; e.download='base-rcci-'+new Date().toISOString().slice(0,10)+'.json'; e.click(); URL.revokeObjectURL(u); };
     $('#b-rs').onclick = () => { const i=document.createElement('input'); i.type='file'; i.accept='.json'; i.onchange=()=>{ const r=new FileReader(); r.onload=()=>{ try{ B.importer(r.result); toast('Base restaurée.'); ecranEntree(); }catch(e){ toast('Fichier invalide.',true);} }; r.readAsText(i.files[0]); }; i.click(); };
     const ong = [['dioceses','Diocèses'],['secteurs','Secteurs'],['paroisses','Paroisses'],['ministeres','Ministères'],['postes','Postes de responsabilité'],['typesActivite','Types d’activités']];
     const k = etat.refOnglet, d = B.d, parent = k==='secteurs'||k==='paroisses' ? 'dioceseId' : null;
+    let liste = d[k]; if(k === 'paroisses' && etat.refSec) liste = liste.filter(x => etat.refSec === 'none' ? !x.secteurId : x.secteurId === etat.refSec);
     v.innerHTML = `<div class="outils">${ong.map(o=>`<button class="btn ${o[0]===k?'btn-marine':'btn-contour'} btn-s" data-o="${o[0]}">${o[1]} (${d[o[0]].length})</button>`).join('')}</div>
+      ${k==='paroisses'?`<div class="outils"><select id="r-fs" style="max-width:260px"><option value="">Toutes les paroisses</option><option value="none" ${etat.refSec==='none'?'selected':''}>Paroisses sans secteur (${d.paroisses.filter(x=>!x.secteurId && d.secteurs.some(s=>s.dioceseId===x.dioceseId)).length})</option>${d.secteurs.map(s=>`<option value="${s.id}" ${etat.refSec===s.id?'selected':''}>${esc(s.nom)} (${d.paroisses.filter(x=>x.secteurId===s.id).length})</option>`).join('')}</select><span class="muet petit">Rattachez chaque paroisse d’Abidjan à son secteur dans la colonne « Secteur ».</span></div>`:''}
       <div class="grille c21" style="align-items:start"><div class="tuile" style="padding:0;overflow:hidden"><table class="tableau"><thead><tr><th>Nom</th>${parent?'<th>Diocèse</th>':''}${k==='paroisses'?'<th>Secteur</th>':''}<th></th></tr></thead><tbody>
-        ${d[k].length?d[k].map(x=>`<tr><td>${esc(x.nom)}</td>${parent?`<td>${esc(B.nom('dioceses',x.dioceseId))}</td>`:''}${k==='paroisses'?`<td>${esc(B.nom('secteurs',x.secteurId)||'—')}</td>`:''}<td style="text-align:right"><button class="btn btn-contour btn-s" data-ren="${x.id}">Modifier</button> <button class="btn btn-danger btn-s" data-del="${x.id}">✕</button></td></tr>`).join(''):'<tr><td colspan="4"><div class="vide"><b>Liste vide</b>Collez la liste officielle à droite.</div></td></tr>'}</tbody></table></div>
+        ${liste.length?liste.map(x=>`<tr><td>${esc(x.nom)}</td>${parent?`<td>${esc(B.nom('dioceses',x.dioceseId))}</td>`:''}${k==='paroisses'?(d.secteurs.some(s=>s.dioceseId===x.dioceseId)?`<td><select data-sp="${x.id}" style="padding:6px 8px;width:auto;max-width:170px"><option value="">— sans secteur —</option>${d.secteurs.filter(s=>s.dioceseId===x.dioceseId).map(s=>`<option value="${s.id}" ${s.id===x.secteurId?'selected':''}>${esc(s.nom)}</option>`).join('')}</select></td>`:'<td class="muet">—</td>'):''}<td style="text-align:right"><button class="btn btn-contour btn-s" data-ren="${x.id}">Modifier</button> <button class="btn btn-danger btn-s" data-del="${x.id}">✕</button></td></tr>`).join(''):'<tr><td colspan="4"><div class="vide"><b>Liste vide</b>Collez la liste officielle à droite.</div></td></tr>'}</tbody></table></div>
       <div class="tuile"><h2>Ajouter une liste</h2><div class="sous">Un élément par ligne. Les doublons sont ignorés.</div>
         ${parent?`<label class="petit" style="font-weight:700">Diocèse</label><select id="r-dio" style="margin-bottom:10px">${options('dioceses','')}</select>`:''}
         ${k==='paroisses'?`<label class="petit" style="font-weight:700">Secteur (Abidjan uniquement)</label><select id="r-sec" style="margin-bottom:10px">${options('secteurs','')}</select>`:''}
         <textarea id="r-txt" placeholder="Collez ici…"></textarea><button class="btn btn-rouge btn-bloc" style="margin-top:12px" id="r-ok">Ajouter</button></div></div>`;
     v.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { etat.refOnglet = b.dataset.o; dessiner(); });
+    if($('#r-fs')) $('#r-fs').onchange = e => { etat.refSec = e.target.value; dessiner(); };
+    // rattacher une paroisse à son secteur : ses membres suivent (sauf ceux qui ont un autre secteur explicite)
+    v.querySelectorAll('[data-sp]').forEach(s => s.onchange = () => { const p = B.par('paroisses', s.dataset.sp), ancien = p.secteurId || ''; p.secteurId = s.value;
+      d.membres.forEach(m => { if(m.paroisseId === p.id && (!m.secteurId || m.secteurId === ancien)) m.secteurId = s.value; });
+      B.tracer('paroisse → secteur', p.nom+' → '+(B.nom('secteurs', s.value)||'aucun')); B.sauver(); toast(p.nom+' : '+(B.nom('secteurs', s.value)||'sans secteur')+'.'); });
     v.querySelectorAll('[data-ren]').forEach(b => b.onclick = () => { const x = B.par(k, b.dataset.ren), n = prompt('Nouveau nom :', x.nom); if(n && n.trim()){ B.tracer('renommage '+k, x.nom+' → '+n.trim()); x.nom = n.trim(); B.sauver(); dessiner(); } });
     v.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { B.retirer(k, b.dataset.del); dessiner(); });
     $('#r-ok').onclick = () => {
@@ -632,7 +663,7 @@
 
   /* ------------------------------------------------------------------ démarrage */
   (async function(){
-    B.charger(); await Photos.charger(); await R.semer(); Intercession.semer(); Intercession.migrer();
+    B.charger(); await Photos.charger(); await R.semer(); Intercession.semer(); Intercession.migrer(); Intercession.activitesDuRenouveau();
     let u = null; try { const id = sessionStorage.getItem('rcci.uid'); u = id && B.par('utilisateurs', id); } catch(_){}
     if(u) ouvrir(u); else ecranEntree();
   })();
