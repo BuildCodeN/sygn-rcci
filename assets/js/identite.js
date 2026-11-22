@@ -35,7 +35,9 @@
     const nomT = jetons(m.nom), preT = jetons(m.prenoms);
     if(!nomT.length) return 0;
     // 1) le NOM de famille doit se retrouver dans le texte de la pièce
-    const sNom = nomT.reduce((a,t)=>a+meilleur(t,q),0)/nomT.length;
+    // le nom de famille peut être le nom de naissance OU le nom d'épouse (« DUPONT Épse MARTIN » ≙ « MARTIN Marie »)
+    const epT = jetons(m.epouseDe||'');
+    const sNom = Math.max(nomT.reduce((a,t)=>a+meilleur(t,q),0)/nomT.length, epT.length ? .93*epT.reduce((a,t)=>a+meilleur(t,q),0)/epT.length : 0);
     // 2) au moins UN prénom de la fiche doit s'y retrouver (la pièce n'en cite souvent qu'un)
     const sPre = preT.length ? Math.max(...preT.map(t=>meilleur(t,q))) : .6;
     // 3) mots de la pièce inconnus de la fiche : léger malus (nom d'épouse, surnom…)
@@ -70,5 +72,5 @@
     if(liste[0].score >= 90 && ecart >= 10) return {etat:'identifie', candidats:liste};
     return {etat:'a-choisir', candidats:liste};
   }
-  window.Identite = {norm, jetons, chercher, scoreMembre};
+  window.Identite = {norm, jetons, chercher, scoreMembre, mot};
 })();
