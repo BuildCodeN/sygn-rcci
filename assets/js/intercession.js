@@ -187,6 +187,7 @@
     const k0 = await crypto.subtle.importKey('raw', new TextEncoder().encode(brut), 'PBKDF2', false, ['deriveKey']);
     const k = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b(C.sel), iterations:C.iter, hash:'SHA-256'}, k0, {name:'AES-GCM', length:256}, false, ['decrypt']);
     const clair = await crypto.subtle.decrypt({name:'AES-GCM', iv:b(C.iv)}, k, b(C.donnees));
+    if(C.gz) return JSON.parse(await new Response(new Blob([clair]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
     return JSON.parse(new TextDecoder().decode(clair));
   }
   async function appliquerDonnees(p){
