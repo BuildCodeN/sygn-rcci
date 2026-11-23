@@ -23,6 +23,7 @@
     participations: 'id, activiteId, membreId, statut, modules{m1,m2,m3}?',
     cotisations: 'id, activiteId, membreId, montant, moment(avant|pendant), mode, date, numero, agent, annulee?, motif?',
     archives:   'id, kind(inscriptions|formation), activiteId, titre, date, resume, tableaux',
+    documents:  'id, titre, categorie, exercice, activiteId?, date, notes, fichierId, nomFichier, type, taille, ajouteLe, ajoutePar',
     diplomes:   'id, activiteId, membreId, remisLe',
     utilisateurs: 'id, email, nom, role, portee?, mdp(hash), demo?',
     journal:    'id, date, action, detail'
