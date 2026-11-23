@@ -15,6 +15,8 @@
     stats:'<path d="M4 20V10M11 20V4M18 20v-7"/>',
     utilisateurs:'<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
     ref:'<path d="M5 5h14v4H5zM5 11h14v4H5zM5 17h14v3H5z"/>',
+    inscriptions:'<rect x="3.5" y="6" width="17" height="12" rx="3"/><circle cx="12" cy="12" r="2.6"/><path d="M7 9.5h.01M17 14.5h.01"/>',
+    formation:'<path d="M3 9l9-4.5L21 9l-9 4.5z"/><path d="M7 11.5V16c1.4 1.4 3 2 5 2s3.6-.6 5-2v-4.5M21 9v5"/>',
     intercession:'<path d="M12 3c2 3-1 4-1 6.5 0 1.5 1 2.5 2.4 2.5S16 11 16 9.5c0-1-.6-1.8-.6-1.8s1.6 1 1.6 3.3c0 2.8-2.4 5-5 5s-5-2.2-5-5c0-4 3.8-5.4 5-9z"/><path d="M4 20h16M7 17.5c1.6 1 3.2 1.5 5 1.5s3.4-.5 5-1.5"/>'
   };
   const svg = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ico[n]}</svg>`;
@@ -22,6 +24,8 @@
     {id:'accueil', nom:'Tableau de bord', sur:'Vue d’ensemble', groupe:'Pilotage'},
     {id:'membres', nom:'Registre national', sur:'Membres du Renouveau', groupe:'Base nationale'},
     {id:'activites', nom:'Activités', sur:'Rencontres et événements', groupe:'Terrain'},
+    {id:'inscriptions', nom:'Inscriptions', sur:'Cotisations et participants', groupe:'Terrain'},
+    {id:'formation', nom:'Formation biblique', sur:'Modules, admission et diplômes', groupe:'Terrain'},
     {id:'controle', nom:'Contrôle', sur:'Poste de contrôle', groupe:'Terrain'},
     {id:'intercession', nom:'Intercession', sur:'Ministère d’intercession', groupe:'Intercession'},
     {id:'stats', nom:'Statistiques', sur:'Analyse', groupe:'Analyse'},
@@ -189,8 +193,10 @@
     $('#b-menu').onclick = () => menu($('#barre').classList.contains('ouvert') ? false : true);
     $('#vue').innerHTML = '';
     ({accueil:vueAccueil, membres:vueMembres, activites:vueActivites, controle:vueControle, stats:vueStats, utilisateurs:vueUtilisateurs, ref:vueRef,
+      inscriptions:(v, a) => Finance.vueInscriptions(v, a, ctxF()), formation:(v, a) => Finance.vueFormation(v, a, ctxF()),
       intercession:(v, a) => Intercession.vue(v, a, {esc, $, modale, toast, redraw:dessiner, nomComplet, nomAffiche, initiales, fdate, peut, options, pStatut, controler, modifierMembre:formMembre, avatar, exporter:Exports, COLS_MEMBRE, ligneMembre, imprimerFiche, choisirPhoto, modifierActivite:formActivite, civilites:CIVILITES})})[page]($('#vue'), $('#actions'));
   }
+  const ctxF = () => ({esc, $, modale, toast, redraw:dessiner, nomAffiche, peut, pStatut, controler, modifierMembre:formMembre, avatar, exporter:Exports, modifierActivite:formActivite, user});
   const aller = p => { page = p; dessiner(); };
   function controler(actId){
     const a = B.par('activites', actId); if(!a) return;
@@ -352,7 +358,7 @@
     const nb = id => d.presences.filter(p=>p.activiteId===id).length;
     const liste = d.activites.slice().sort((x,y)=>(y.date||'').localeCompare(x.date||''));
     v.innerHTML = liste.length ? `<div class="liste-act">${liste.map(a=>`<div class="carte-act">
-        <div class="act-info"><div class="act-titre">${esc(a.intitule)}</div>
+        <div class="act-info"><div class="act-titre">${esc(a.intitule)}</div>${a.parentId?'<div class="petit" style="color:#286FBE;font-weight:700">Module '+(a.moduleNum||'')+' de la formation</div>':''}
           <div class="petit muet">${esc(B.nom('typesActivite',a.typeId))}${a.responsable?' · Resp. '+esc(a.responsable):''}</div></div>
         <div class="act-meta">
           <div><span class="act-lib">Date</span>${a.date?esc(fdate(a.date)):'—'}${a.heure?` · ${esc(a.heure)}`:''}</div>
@@ -371,6 +377,8 @@
   }
   function supprimerActivite(a){
     if(!a) return;
+    const nv = B.d.cotisations.filter(c => c.activiteId === a.id).length, nm = B.d.activites.filter(x => x.parentId === a.id).length;
+    if(nv || nm) return modale('Suppression impossible', `<p><b>${esc(a.intitule)}</b> contient ${nv ? nv + ' versement(s) enregistré(s)' : ''}${nv && nm ? ' et ' : ''}${nm ? nm + ' module(s) rattaché(s)' : ''}.</p><p class="petit muet">Pour conserver l’historique, ces données ne se suppriment pas. Utilisez « Archiver » dans la page Inscriptions ou Formation biblique.</p>`, '<button class="btn btn-rouge" id="sx-ok">Compris</button>').querySelector('#sx-ok').onclick = e => e.target.closest('.voile').remove();
     const d = B.d, np = d.presences.filter(p=>p.activiteId===a.id).length, nq = (d.participations||[]).filter(p=>p.activiteId===a.id).length;
     const v = modale('Supprimer l’activité', `<p>Voulez-vous vraiment supprimer <b>${esc(a.intitule)}</b> ?</p>
       <p class="petit muet">Seront aussi supprimés : ${np} présence(s) contrôlée(s) et ${nq} participation(s) liée(s) à cette activité. Les fiches des membres ne sont pas touchées. Cette action est définitive.</p>`,
