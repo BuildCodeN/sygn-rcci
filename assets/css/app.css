@@ -459,3 +459,14 @@ body.menu-ouvert{overflow:hidden;}
   .pied-entree{margin-top:6px;padding-top:5px;} .lien-retour{font-size:12px;padding:2px 4px;}
 }
 @media (max-width:600px) and (max-height:700px){ .carte-entree{height:min(500px,84vh);height:min(500px,84dvh);} .carte-entree .logo{max-height:64px;} }
+
+/* v13 — liste des activités en cartes (plus de tableau qui déborde) */
+.liste-act{display:flex;flex-direction:column;gap:12px}
+.carte-act{background:#fff;border:1px solid var(--trait);border-radius:16px;padding:14px 18px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr);gap:10px 18px;align-items:center}
+.act-titre{font-weight:800;font-size:16px;line-height:1.25}
+.act-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px 14px;font-size:14px;min-width:0}
+.act-meta>div{min-width:0;overflow-wrap:anywhere}
+.act-lib{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7b86a3}
+.act-meta select{width:100%;min-width:150px;padding:6px 8px}
+.act-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--trait);padding-top:10px}
+@media (max-width:760px){.carte-act{grid-template-columns:minmax(0,1fr)}}
