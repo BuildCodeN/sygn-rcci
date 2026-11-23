@@ -349,17 +349,39 @@
     const gere = peut('activites');
     if(gere){ act.innerHTML = '<button class="btn btn-rouge" id="b-na">+ Nouvelle activité</button>'; $('#b-na').onclick = () => formActivite(); }
     const d = B.d;
-    v.innerHTML = `<div class="tuile" style="padding:0;overflow:hidden"><table class="tableau"><thead><tr><th>Activité</th><th>Date</th><th>Lieu</th><th>Présents</th><th>Statut</th>${gere?'<th></th>':''}</tr></thead><tbody>
-      ${d.activites.length ? d.activites.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(a=>`<tr><td><b>${esc(a.intitule)}</b><div class="petit muet">${esc(B.nom('typesActivite',a.typeId))}${a.responsable?' · Resp. '+esc(a.responsable):''}</div></td><td>${esc(fdate(a.date))}<div class="petit muet">${esc(a.heure||'')}</div></td><td>${esc(a.lieu||'—')}</td><td><b>${d.presences.filter(p=>p.activiteId===a.id).length}</b></td>
-        <td>${gere?`<select data-st="${a.id}" style="padding:6px 8px;width:auto">${B.STATUTS.map(s=>`<option ${s===a.statut?'selected':''}>${s}</option>`).join('')}</select>`:pStatut(a.statut)}</td>
-        ${gere?`<td style="white-space:nowrap"><button class="btn btn-contour btn-s" data-im="${a.id}">Importer une liste</button> <button class="btn btn-contour btn-s" data-ed="${a.id}">Modifier</button> <button class="btn btn-contour btn-s" data-ct="${a.id}">Contrôler</button> <button class="btn btn-danger btn-s" data-del="${a.id}">✕</button></td>`:''}</tr>`).join('')
-        : `<tr><td colspan="6"><div class="vide"><b>Aucune activité</b>Une activité doit exister avant d’ouvrir le contrôle des présences.</div></td></tr>`}
-      </tbody></table></div>`;
+    const nb = id => d.presences.filter(p=>p.activiteId===id).length;
+    const liste = d.activites.slice().sort((x,y)=>(y.date||'').localeCompare(x.date||''));
+    v.innerHTML = liste.length ? `<div class="liste-act">${liste.map(a=>`<div class="carte-act">
+        <div class="act-info"><div class="act-titre">${esc(a.intitule)}</div>
+          <div class="petit muet">${esc(B.nom('typesActivite',a.typeId))}${a.responsable?' · Resp. '+esc(a.responsable):''}</div></div>
+        <div class="act-meta">
+          <div><span class="act-lib">Date</span>${a.date?esc(fdate(a.date)):'—'}${a.heure?` · ${esc(a.heure)}`:''}</div>
+          <div><span class="act-lib">Lieu</span>${esc(a.lieu||'—')}</div>
+          <div><span class="act-lib">Présents</span><b>${nb(a.id)}</b></div>
+          <div><span class="act-lib">Statut</span>${gere?`<select data-st="${a.id}">${B.STATUTS.map(s=>`<option ${s===a.statut?'selected':''}>${s}</option>`).join('')}</select>`:pStatut(a.statut)}</div>
+        </div>
+        ${gere?`<div class="act-actions"><button class="btn btn-contour btn-s" data-ct="${a.id}">Contrôler</button><button class="btn btn-contour btn-s" data-im="${a.id}">Importer une liste</button><button class="btn btn-contour btn-s" data-ed="${a.id}">Modifier</button><button class="btn btn-danger btn-s" data-del="${a.id}">Supprimer</button></div>`:''}
+      </div>`).join('')}</div>`
+      : `<div class="tuile"><div class="vide"><b>Aucune activité</b>Une activité doit exister avant d’ouvrir le contrôle des présences.</div></div>`;
     v.querySelectorAll('[data-st]').forEach(s => s.onchange = () => { const a=B.par('activites',s.dataset.st); a.statut=s.value; B.tracer('statut activité', a.intitule+' → '+a.statut); B.sauver(); dessiner(); });
     v.querySelectorAll('[data-im]').forEach(b => b.onclick = () => Registre.importer({esc, $, modale, toast, redraw:dessiner}, b.dataset.im));
     v.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => formActivite(B.par('activites', b.dataset.ed)));
     v.querySelectorAll('[data-ct]').forEach(b => b.onclick = () => { etat.ctrl.activiteId = b.dataset.ct; aller('controle'); });
-    v.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if(confirm('Supprimer cette activité et ses présences ?')){ B.d.presences=B.d.presences.filter(p=>p.activiteId!==b.dataset.del); B.retirer('activites',b.dataset.del); dessiner(); } });
+    v.querySelectorAll('[data-del]').forEach(b => b.onclick = () => supprimerActivite(B.par('activites', b.dataset.del)));
+  }
+  function supprimerActivite(a){
+    if(!a) return;
+    const d = B.d, np = d.presences.filter(p=>p.activiteId===a.id).length, nq = (d.participations||[]).filter(p=>p.activiteId===a.id).length;
+    const v = modale('Supprimer l’activité', `<p>Voulez-vous vraiment supprimer <b>${esc(a.intitule)}</b> ?</p>
+      <p class="petit muet">Seront aussi supprimés : ${np} présence(s) contrôlée(s) et ${nq} participation(s) liée(s) à cette activité. Les fiches des membres ne sont pas touchées. Cette action est définitive.</p>`,
+      `<button class="btn btn-contour" id="s-ann">Annuler</button><button class="btn btn-danger" id="s-ok">Supprimer</button>`);
+    $('#s-ann',v).onclick = () => v.remove();
+    $('#s-ok',v).onclick = () => {
+      d.presences = d.presences.filter(p=>p.activiteId!==a.id);
+      if(d.participations) d.participations = d.participations.filter(p=>p.activiteId!==a.id);
+      if(etat.ctrl && etat.ctrl.activiteId===a.id) etat.ctrl.activiteId = null;
+      B.tracer('suppression activité', a.intitule); B.retirer('activites', a.id); B.sauver(); v.remove(); toast('Activité supprimée.'); dessiner();
+    };
   }
   function formActivite(a){
     const n = a || {};
