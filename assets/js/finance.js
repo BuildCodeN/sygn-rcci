@@ -241,7 +241,7 @@
     const L = B.d.archives;
     z.innerHTML = `<div class="tuile" style="padding:0;overflow:hidden"><div class="outils" style="padding:14px 16px 0;margin:0"><span class="muet petit">Instantanés figés : ils ne changent plus, même si les fiches sont modifiées après.</span></div>
       <div class="defile"><table class="tableau"><thead><tr><th>Archive</th><th>Date</th><th>Résumé</th><th></th></tr></thead><tbody>
-      ${L.length ? L.map(s => `<tr><td><b>${esc(s.titre)}</b><div class="petit muet">${s.kind === 'formation' ? 'Formation biblique' : 'Inscriptions'} · par ${esc(s.par || '')}</div></td><td>${esc(dh(s.date))}</td><td class="petit">${s.resume.slice(2, 5).map(r => esc(r[0]) + ' : <b>' + esc(r[1]) + '</b>').join('<br>')}</td>
+      ${L.length ? L.map(s => `<tr><td><b>${esc(s.titre)}</b><div class="petit muet">${({formation:'Formation biblique', inscriptions:'Inscriptions', 'rapport-activite':'Rapport d’activité', 'rapport-exercice':'Rapport d’exercice'})[s.kind] || 'Archive'} · par ${esc(s.par || '')}</div></td><td>${esc(dh(s.date))}</td><td class="petit">${s.resume.slice(2, 5).map(r => esc(r[0]) + ' : <b>' + esc(r[1]) + '</b>').join('<br>')}</td>
         <td style="white-space:nowrap"><button class="btn btn-contour btn-s" data-av="${s.id}">Voir</button> <button class="btn btn-contour btn-s" data-ap="${s.id}">Imprimer</button></td></tr>`).join('') : '<tr><td colspan="4"><div class="vide"><b>Aucune archive</b>Utilisez « Archiver » à la fin d’une activité.</div></td></tr>'}</tbody></table></div></div>`;
     z.querySelectorAll('[data-av]').forEach(b => b.onclick = () => voirSnap(L.find(s => s.id === b.dataset.av)));
     z.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => imprimerSnap(L.find(s => s.id === b.dataset.ap)));
@@ -337,7 +337,7 @@
           ${fige ? '' : `<div class="act-actions"><button class="btn btn-contour btn-s" data-fc="${a.id}">Contrôler</button><button class="btn btn-contour btn-s" data-fi="${a.id}">Importer une liste</button><button class="btn btn-contour btn-s" data-fm="${a.id}">Modifier</button>${admin && !termine(a) ? `<button class="btn btn-contour btn-s" data-fx="${a.id}">Clôturer le module</button>` : ''}</div>`}</div>`).join('')}</div>
       <div class="alerte-boite" style="margin:14px 0 0"><b>Règle :</b> qui a commencé le module 1 doit suivre tous les modules ; un module manqué = recalé. Un module n’est pris en compte comme « manqué » que lorsqu’il est <b>clôturé</b>. Le diplôme est retenu tant que la cotisation (${f.seuil ? fcfa(f.seuil) : 'aucun minimum fixé'}) n’est pas versée.</div>
       <div class="tuile" style="padding:0;overflow:hidden;margin-top:18px"><div class="outils" style="padding:14px 16px 0;margin:0"><select id="f-f"><option value="tous">Toutes les personnes (${R.length})</option><option value="admis" ${filtre === 'admis' ? 'selected' : ''}>Admis(es) (${nb('admis')})</option><option value="recale" ${filtre === 'recale' ? 'selected' : ''}>Recalé(e)s (${nb('recale')})</option><option value="encours" ${filtre === 'encours' ? 'selected' : ''}>En cours (${nb('encours')})</option><option value="hors" ${filtre === 'hors' ? 'selected' : ''}>Hors cursus (${nb('hors')})</option><option value="diplome" ${filtre === 'diplome' ? 'selected' : ''}>Diplômes</option></select>
-        <button class="btn btn-contour" id="f-c">Exporter (Excel)</button><button class="btn btn-rouge" id="f-p">Imprimer</button>${admin && !fige ? '<button class="btn btn-contour" id="f-ar">Archiver la session</button>' : ''}${admin && fige ? '<button class="btn btn-contour" id="f-re">Rouvrir</button>' : ''}</div>
+        <button class="btn btn-contour" id="f-c">Exporter (Excel)</button><button class="btn btn-rouge" id="f-p">Imprimer la liste</button>${admin ? '<button class="btn btn-rouge" id="f-dg">Générer les diplômes</button>' : ''}${admin && !fige ? '<button class="btn btn-contour" id="f-ar">Archiver la session</button>' : ''}${admin && fige ? '<button class="btn btn-contour" id="f-re">Rouvrir</button>' : ''}</div>
         <div class="defile"><table class="tableau"><thead><tr><th>N°</th><th>Nom et prénoms</th><th>Diocèse</th>${mods.map((_, k) => `<th>M${k + 1}</th>`).join('')}<th>Décision</th><th>Cotisation</th><th>Diplôme</th></tr></thead><tbody>
         ${vus.length ? vus.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(nomM(r.m))}</b></td><td>${esc(dioDe(r.m))}</td>
           ${r.vu.map((x, k) => `<td><input type="checkbox" style="width:auto" data-pm="${r.id}|${k}" ${x ? 'checked' : ''} ${(fige || r.via[k] === 'contrôle' || !admin) ? 'disabled' : ''} title="${x ? 'présent (' + esc(r.via[k]) + ')' : 'absent'}"></td>`).join('')}
@@ -359,7 +359,9 @@
       if(c.checked){ if(!B.d.participations.some(p => p.activiteId === a.id && p.membreId === id)) B.d.participations.push({id:B.uid('prt'), activiteId:a.id, membreId:id, statut:'présent', manuel:true, modules:{}}); }
       else B.d.participations = B.d.participations.filter(p => !(p.activiteId === a.id && p.membreId === id));
       B.tracer('présence module (manuel)', nomM(B.par('membres', id)) + ' — ' + a.intitule + ' — ' + (c.checked ? 'présent' : 'absent') + ' — ' + C.user.email); B.sauver(); rafr(); });
-    v.querySelectorAll('[data-dp]').forEach(b => b.onclick = () => diplomeImprimer(par, R.find(r => r.id === b.dataset.dp), mods.length));
+    const elig = R.filter(r => ['delivrer', 'remis'].includes(r.diplome));
+    if($('#f-dg', v)) $('#f-dg', v).onclick = () => Archives.diplomes(C, par, elig, rafr);
+    v.querySelectorAll('[data-dp]').forEach(b => b.onclick = () => Archives.diplomes(C, par, elig, rafr, b.dataset.dp));
     v.querySelectorAll('[data-dr]').forEach(b => b.onclick = () => { const id = b.dataset.dr; B.d.diplomes.push({id:B.uid('dip'), activiteId:par.id, membreId:id, remisLe:new Date().toISOString(), par:C.user.email}); B.tracer('diplôme remis', nomM(B.par('membres', id)) + ' — ' + par.intitule); B.sauver(); rafr(); });
     if($('#f-ar', v)) $('#f-ar', v).onclick = () => {
       if(!confirm('Archiver la session « ' + par.intitule + ' » ?\n\nL’état des listes, les admis, les recalés et les diplômes sont conservés dans un instantané ; les modules sont figés.')) return;
@@ -367,5 +369,5 @@
       par.statut = 'archivée'; mods.forEach(m => m.statut = 'archivée'); B.tracer('archivage', s.titre + ' — ' + C.user.email); B.sauver(); C.toast('Session archivée.'); rafr(); };
     if($('#f-re', v)) $('#f-re', v).onclick = () => { par.statut = 'clôturée'; mods.forEach(m => { if(m.statut === 'archivée') m.statut = 'clôturée'; }); B.tracer('réouverture session', par.intitule); B.sauver(); rafr(); };
   }
-  window.Finance = {vueInscriptions, vueFormation, calcul, fcfa};
+  window.Finance = {vueInscriptions, vueFormation, calcul, fcfa, init:c => { C = c; }, imprimerSnap, voirSnap, csvSnap, archivesOnglet, calcFormation, dj, dh, dioDe, parDe, nomM};
 })();
