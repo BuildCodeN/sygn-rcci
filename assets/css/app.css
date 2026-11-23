@@ -470,3 +470,16 @@ body.menu-ouvert{overflow:hidden;}
 .act-meta select{width:100%;min-width:150px;padding:6px 8px}
 .act-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--trait);padding-top:10px}
 @media (max-width:760px){.carte-act{grid-template-columns:minmax(0,1fr)}}
+
+/* v14 — inscriptions, formation biblique */
+.defile{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.defile .tableau{display:table;min-width:640px}
+.p-ko{background:#FBDDD7;color:#9a2a10}
+.tot-ligne td{background:#eef1f8;border-top:2px solid #c9d1e6}
+tr.clic{cursor:pointer} tr.clic:hover td{background:#fff8d6}
+.resultats-ins{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.res-ins{display:flex;align-items:center;gap:12px;text-align:left;width:100%;padding:8px 12px;border:1px solid var(--trait);border-radius:12px;background:#fff;cursor:pointer;font:inherit}
+.res-ins:hover{background:#fff8d6;border-color:#e4c93a}
+.res-nom{flex:1;min-width:0;display:flex;flex-direction:column}
+@media (max-width:760px){.defile .tableau{min-width:560px}}
+@media (max-width:760px){.grille.kpis2{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}.kpis2 .kpi{min-height:0!important;height:auto!important;padding:14px 12px 12px!important}.kpis2 .kpi .v{font-size:19px!important;line-height:1.15}.kpis2 .kpi .note{font-size:11px}.kpis2 .kpi .k{font-size:10px}}
