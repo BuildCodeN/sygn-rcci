@@ -5,12 +5,12 @@
   'use strict';
   const MDP_DEMO = 'Renouveau2026@';
   const ROLES = {
-    admin:       {nom:'Administrateur national', pages:['accueil','membres','activites','controle','intercession','stats','utilisateurs','ref'], creer:true, modifier:true, supprimer:true, activites:true},
+    admin:       {nom:'Administrateur national', pages:['accueil','membres','activites','inscriptions','formation','controle','intercession','stats','utilisateurs','ref'], creer:true, modifier:true, supprimer:true, activites:true},
     diocese:     {nom:'Responsable diocésain',   pages:['accueil','membres','activites','stats'], portee:'diocese'},
     secteur:     {nom:'Responsable de secteur',  pages:['accueil','membres','stats'], portee:'secteur'},
     paroisse:    {nom:'Responsable paroissial',  pages:['accueil','membres','stats'], portee:'paroisse'},
     controle:    {nom:'Agent de contrôle',       pages:['controle'], creer:true},
-    inscription: {nom:'Agent d’inscription', pages:['membres'], creer:true}
+    inscription: {nom:'Agent d’inscription', pages:['inscriptions','membres'], creer:true}
   };
   // Comptes de démonstration (affichés sur l'écran de connexion hors HTTPS, comme GCHFlow)
   const COMPTES_DEMO = [
