@@ -168,15 +168,22 @@
   }
 
   /* ------------------------------------------------- activités du Renouveau (nationales) */
-  /** Retraite annuelle, pèlerinage national, formation publique : créées une fois, sans date (à fixer), modifiables. */
+  /** Retraite annuelle, pèlerinage national, formation biblique : créées une fois, sans date (à fixer), modifiables. */
   function activitesDuRenouveau(){
-    const d = B.d; if(d.meta.activitesRenouveau) return false;
-    ['Retraite annuelle','Pèlerinage national','Formation publique'].forEach(n => {
+    const d = B.d;
+    if(!d.meta.renomFormationBiblique){            // correction du 23/11 : c'est la « Formation biblique », pas « Formation publique »
+      d.activites.forEach(a => { if(norm(a.intitule) === norm('Formation publique')) a.intitule = 'Formation biblique'; });
+      const ancien = d.typesActivite.find(x => norm(x.nom) === norm('Formation publique')), bib = d.typesActivite.find(x => norm(x.nom) === norm('Formation biblique'));
+      if(ancien){ if(bib){ d.activites.forEach(a => { if(a.typeId === ancien.id) a.typeId = bib.id; }); d.typesActivite = d.typesActivite.filter(x => x.id !== ancien.id); } else ancien.nom = 'Formation biblique'; }
+      d.meta.renomFormationBiblique = 1; B.sauver();
+    }
+    if(d.meta.activitesRenouveau) return false;
+    ['Retraite annuelle','Pèlerinage national','Formation biblique'].forEach(n => {
       let t = d.typesActivite.find(x => norm(x.nom) === norm(n)); if(!t){ t = {id:B.uid('typ'), nom:n}; d.typesActivite.push(t); }
       if(!d.activites.some(a => norm(a.intitule) === norm(n) && !a.demo))
         d.activites.push({id:B.uid('act'), intitule:n, typeId:t.id, date:'', heure:'', lieu:'', statut:'en préparation', responsable:'', niveau:'national', modules:[]});
     });
-    d.meta.activitesRenouveau = 1; B.tracer('activités du Renouveau', 'retraite annuelle, pèlerinage national, formation publique'); B.sauver(); return true;
+    d.meta.activitesRenouveau = 1; B.tracer('activités du Renouveau', 'retraite annuelle, pèlerinage national, formation biblique'); B.sauver(); return true;
   }
 
   /* ----------------------------------- données du ministère publiées CHIFFRÉES (version en ligne) */
