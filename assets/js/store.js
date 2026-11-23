@@ -14,13 +14,16 @@
     postes:     'id, nom',
     typesActivite: 'id, nom',
     membres:    'id, matricule, nom, prenoms, dateNaissance, sexe, tel, whatsapp, dioceseId, secteurId, paroisseId, ministereId, posteId, profession, pieces[{type,numero}], creeLe, demo?',
-    activites:  'id, intitule, typeId, date, heure, lieu, statut, responsable, demo?',
+    activites:  'id, intitule, typeId, date, heure, lieu, statut, responsable, contribMontant?, contribSeuil?, parentId?, moduleNum?, annee?, demo?',
     preinscriptions: 'id, activiteId, structure, effectif',
     presences:  'id, activiteId, membreId, heure, poste, pieceType, pieceNumero?, nouveau?',
     // --- Module INTERCESSION (une personne = une fiche dans « membres », jamais de doublon) ---
     organes:    'id, code(continental|national|coordination), nom, niveau, parentId?, description',
     affectations: 'id, organeId, membreId, dioceseId?, entite, fonction, fonctionCivile?, rang',
     participations: 'id, activiteId, membreId, statut, modules{m1,m2,m3}?',
+    cotisations: 'id, activiteId, membreId, montant, moment(avant|pendant), mode, date, numero, agent, annulee?, motif?',
+    archives:   'id, kind(inscriptions|formation), activiteId, titre, date, resume, tableaux',
+    diplomes:   'id, activiteId, membreId, remisLe',
     utilisateurs: 'id, email, nom, role, portee?, mdp(hash), demo?',
     journal:    'id, date, action, detail'
   };
