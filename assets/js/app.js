@@ -16,6 +16,7 @@
     utilisateurs:'<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
     ref:'<path d="M5 5h14v4H5zM5 11h14v4H5zM5 17h14v3H5z"/>',
     inscriptions:'<rect x="3.5" y="6" width="17" height="12" rx="3"/><circle cx="12" cy="12" r="2.6"/><path d="M7 9.5h.01M17 14.5h.01"/>',
+    archives:'<rect x="3.5" y="4" width="17" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/>',
     formation:'<path d="M3 9l9-4.5L21 9l-9 4.5z"/><path d="M7 11.5V16c1.4 1.4 3 2 5 2s3.6-.6 5-2v-4.5M21 9v5"/>',
     intercession:'<path d="M12 3c2 3-1 4-1 6.5 0 1.5 1 2.5 2.4 2.5S16 11 16 9.5c0-1-.6-1.8-.6-1.8s1.6 1 1.6 3.3c0 2.8-2.4 5-5 5s-5-2.2-5-5c0-4 3.8-5.4 5-9z"/><path d="M4 20h16M7 17.5c1.6 1 3.2 1.5 5 1.5s3.4-.5 5-1.5"/>'
   };
@@ -26,6 +27,7 @@
     {id:'activites', nom:'Activités', sur:'Rencontres et événements', groupe:'Terrain'},
     {id:'inscriptions', nom:'Inscriptions', sur:'Cotisations et participants', groupe:'Terrain'},
     {id:'formation', nom:'Formation biblique', sur:'Modules, admission et diplômes', groupe:'Terrain'},
+    {id:'archives', nom:'Archives', sur:'Comptes rendus et rapports', groupe:'Administration'},
     {id:'controle', nom:'Contrôle', sur:'Poste de contrôle', groupe:'Terrain'},
     {id:'intercession', nom:'Intercession', sur:'Ministère d’intercession', groupe:'Intercession'},
     {id:'stats', nom:'Statistiques', sur:'Analyse', groupe:'Analyse'},
@@ -193,7 +195,7 @@
     $('#b-menu').onclick = () => menu($('#barre').classList.contains('ouvert') ? false : true);
     $('#vue').innerHTML = '';
     ({accueil:vueAccueil, membres:vueMembres, activites:vueActivites, controle:vueControle, stats:vueStats, utilisateurs:vueUtilisateurs, ref:vueRef,
-      inscriptions:(v, a) => Finance.vueInscriptions(v, a, ctxF()), formation:(v, a) => Finance.vueFormation(v, a, ctxF()),
+      inscriptions:(v, a) => Finance.vueInscriptions(v, a, ctxF()), formation:(v, a) => Finance.vueFormation(v, a, ctxF()), archives:(v, a) => Archives.vue(v, a, ctxF()),
       intercession:(v, a) => Intercession.vue(v, a, {esc, $, modale, toast, redraw:dessiner, nomComplet, nomAffiche, initiales, fdate, peut, options, pStatut, controler, modifierMembre:formMembre, avatar, exporter:Exports, COLS_MEMBRE, ligneMembre, imprimerFiche, choisirPhoto, modifierActivite:formActivite, civilites:CIVILITES})})[page]($('#vue'), $('#actions'));
   }
   const ctxF = () => ({esc, $, modale, toast, redraw:dessiner, nomAffiche, peut, pStatut, controler, modifierMembre:formMembre, avatar, exporter:Exports, modifierActivite:formActivite, user});
