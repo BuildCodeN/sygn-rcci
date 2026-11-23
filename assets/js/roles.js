@@ -5,7 +5,7 @@
   'use strict';
   const MDP_DEMO = 'Renouveau2026@';
   const ROLES = {
-    admin:       {nom:'Administrateur national', pages:['accueil','membres','activites','inscriptions','formation','controle','intercession','stats','utilisateurs','ref'], creer:true, modifier:true, supprimer:true, activites:true},
+    admin:       {nom:'Administrateur national', pages:['accueil','membres','activites','inscriptions','formation','archives','controle','intercession','stats','utilisateurs','ref'], creer:true, modifier:true, supprimer:true, activites:true},
     diocese:     {nom:'Responsable diocésain',   pages:['accueil','membres','activites','stats'], portee:'diocese'},
     secteur:     {nom:'Responsable de secteur',  pages:['accueil','membres','stats'], portee:'secteur'},
     paroisse:    {nom:'Responsable paroissial',  pages:['accueil','membres','stats'], portee:'paroisse'},
