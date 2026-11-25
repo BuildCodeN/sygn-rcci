@@ -49,6 +49,14 @@
   const avatar = (m, cls) => { const u = Photos.url(m); return `<span class="avatar ${cls||''} ${u?'avec-photo':''}" ${u?`style="background-image:url('${esc(u)}')"`:''}>${u?'':esc(initiales(m))}</span>`; };
   const COLS_MEMBRE = ['Civilité','Nom','Prénoms','Épouse de','Matricule','Diocèse','Secteur','Paroisse','Ministère','Poste','Fonction','Téléphone','WhatsApp','E-mail'];
   const ligneMembre = m => [m.civilite||'', m.nom, m.prenoms, m.epouseDe||'', m.matricule, B.nom('dioceses',m.dioceseId), B.nom('secteurs',m.secteurId), B.nom('paroisses',m.paroisseId), B.nom('ministeres',m.ministereId), B.nom('postes',m.posteId), m.profession||'', m.tel||'', m.whatsapp||'', m.email||''];
+  /* Colonnes de la liste des membres (ordre demandé ; les dernières sont facultatives) */
+  const civiliteLongue = m => ({'M.':'Monsieur', 'Mme':'Madame', 'Mlle':'Mademoiselle'})[m.civilite] || (m.sexe==='M'?'Monsieur':m.sexe==='F'?'Madame':'');
+  const COLONNES_LISTE = [
+    ['num','N°',1,(m,i)=>i+1], ['mat','Matricule',1,m=>m.matricule], ['civ','Civilité',1,civiliteLongue], ['nom','Nom',1,m=>m.nom], ['pre','Prénoms',1,m=>m.prenoms],
+    ['dio','Diocèse',1,m=>B.nom('dioceses',m.dioceseId)], ['par','Paroisse',1,m=>B.nom('paroisses',m.paroisseId)], ['pro','Profession',1,m=>m.profession||''], ['min','Ministère',1,m=>B.nom('ministeres',m.ministereId)], ['wha','WhatsApp',1,m=>m.whatsapp||m.tel||''],
+    ['epo','Épouse de',0,m=>m.epouseDe||''], ['sec','Secteur',0,m=>B.nom('secteurs',secteurIdDe(m))], ['pos','Poste',0,m=>B.nom('postes',m.posteId)], ['tel','Téléphone',0,m=>m.tel||''], ['mail','E-mail',0,m=>m.email||''], ['sig','Émargement',0,()=>'']
+  ].map(([id,nom,d,val]) => ({id, nom, defaut:!!d, val}));
+  const listeMembres = l => Exports.choisirColonnes({cle:'membres', titre:'Liste des membres', sousTitre:[l.length+' membre(s)', etat.fDio?B.nom('dioceses',etat.fDio):'', etat.fSec?B.nom('secteurs',etat.fSec):'', etat.fMin?B.nom('ministeres',etat.fMin):''].filter(Boolean).join(' · '), colonnes:COLONNES_LISTE, elements:l.slice(), modale});
   function imprimerFiche(m){
     Exports.fiche(nomAffiche(m), Photos.url(m), initiales(m), [['Nom complet', nomAffiche(m)], ['Matricule', m.matricule], ['Date de naissance', m.dateNaissance?fdate(m.dateNaissance):''], ['Sexe', m.sexe],
       ['Diocèse', B.nom('dioceses',m.dioceseId)], ['Secteur', B.nom('secteurs',m.secteurId)], ['Paroisse', B.nom('paroisses',m.paroisseId)], ['Ministère', B.nom('ministeres',m.ministereId)], ['Poste de responsabilité', B.nom('postes',m.posteId)],
@@ -297,8 +305,8 @@
     $('#fd').onchange = e => { etat.fDio = e.target.value; maj(); };
     $('#fs').onchange = e => { etat.fSec = e.target.value; maj(); };
     $('#fm').onchange = e => { etat.fMin = e.target.value; maj(); };
-    $('#x-csv').onclick = () => Exports.csv('membres', COLS_MEMBRE, courant.map(ligneMembre));
-    $('#x-pdf').onclick = () => Exports.imprimer('Liste des membres', courant.length+' membre(s)', COLS_MEMBRE.filter((_, i) => [1,2,4,5,7,8,11].includes(i)), courant.map(m => { const L = ligneMembre(m); return [1,2,4,5,7,8,11].map(i => L[i]); }));
+    $('#x-csv').onclick = () => listeMembres(courant);
+    $('#x-pdf').onclick = () => listeMembres(courant);
     maj(); fiche();
   }
   function formMembre(m, prefill, apres){
