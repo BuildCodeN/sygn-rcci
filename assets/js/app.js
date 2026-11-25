@@ -47,14 +47,14 @@
 
   /* ---- photos, listes et fiches imprimables ---- */
   const avatar = (m, cls) => { const u = Photos.url(m); return `<span class="avatar ${cls||''} ${u?'avec-photo':''}" ${u?`style="background-image:url('${esc(u)}')"`:''}>${u?'':esc(initiales(m))}</span>`; };
-  const COLS_MEMBRE = ['Civilité','Nom','Prénoms','Épouse de','Matricule','Diocèse','Secteur','Paroisse','Ministère','Poste','Fonction','Téléphone','WhatsApp','E-mail'];
+  const COLS_MEMBRE = ['Civ.','Nom','Prénoms','Épse','Matricule','Diocèse','Secteur','Paroisse','Ministère','Poste','Fonction','Téléphone','WhatsApp','E-mail'];
   const ligneMembre = m => [m.civilite||'', m.nom, m.prenoms, m.epouseDe||'', m.matricule, B.nom('dioceses',m.dioceseId), B.nom('secteurs',m.secteurId), B.nom('paroisses',m.paroisseId), B.nom('ministeres',m.ministereId), B.nom('postes',m.posteId), m.profession||'', m.tel||'', m.whatsapp||'', m.email||''];
   /* Colonnes de la liste des membres (ordre demandé ; les dernières sont facultatives) */
-  const civiliteLongue = m => ({'M.':'Monsieur', 'Mme':'Madame', 'Mlle':'Mademoiselle'})[m.civilite] || (m.sexe==='M'?'Monsieur':m.sexe==='F'?'Madame':'');
+  const civiliteCourte = m => ({'M.':'M.', 'Mme':'Mme', 'Mlle':'Mlle'})[m.civilite] || (m.sexe==='M'?'M.':m.sexe==='F'?'Mme':'');
   const COLONNES_LISTE = [
-    ['num','N°',1,(m,i)=>i+1], ['mat','Matricule',1,m=>m.matricule], ['civ','Civilité',1,civiliteLongue], ['nom','Nom',1,m=>m.nom], ['pre','Prénoms',1,m=>m.prenoms],
+    ['num','N°',1,(m,i)=>i+1], ['mat','Matricule',1,m=>m.matricule], ['civ','Civ.',1,civiliteCourte], ['nom','Nom',1,m=>m.nom], ['pre','Prénoms',1,m=>m.prenoms], ['epo','Épse',0,m=>m.epouseDe||''],
     ['dio','Diocèse',1,m=>B.nom('dioceses',m.dioceseId)], ['par','Paroisse',1,m=>B.nom('paroisses',m.paroisseId)], ['pro','Profession',1,m=>m.profession||''], ['min','Ministère',1,m=>B.nom('ministeres',m.ministereId)], ['wha','WhatsApp',1,m=>m.whatsapp||m.tel||''],
-    ['epo','Épouse de',0,m=>m.epouseDe||''], ['sec','Secteur',0,m=>B.nom('secteurs',secteurIdDe(m))], ['pos','Poste',0,m=>B.nom('postes',m.posteId)], ['tel','Téléphone',0,m=>m.tel||''], ['mail','E-mail',0,m=>m.email||''], ['sig','Émargement',0,()=>'']
+    ['sec','Secteur',0,m=>B.nom('secteurs',secteurIdDe(m))], ['pos','Poste',0,m=>B.nom('postes',m.posteId)], ['tel','Téléphone',0,m=>m.tel||''], ['mail','E-mail',0,m=>m.email||''], ['sig','Émargement',0,()=>'']
   ].map(([id,nom,d,val]) => ({id, nom, defaut:!!d, val}));
   const listeMembres = l => Exports.choisirColonnes({cle:'membres', titre:'Liste des membres', sousTitre:[l.length+' membre(s)', etat.fDio?B.nom('dioceses',etat.fDio):'', etat.fSec?B.nom('secteurs',etat.fSec):'', etat.fMin?B.nom('ministeres',etat.fMin):''].filter(Boolean).join(' · '), colonnes:COLONNES_LISTE, elements:l.slice(), modale});
   function imprimerFiche(m){
@@ -490,6 +490,7 @@
         flux = await navigator.mediaDevices.getUserMedia({video:contraintes, audio:false});
         if(!v.isConnected){ arreter(); return; }
         vid.srcObject = flux; try { await vid.play(); } catch(_){}
+        try { await flux.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]}); } catch(_){}
         const s = flux.getVideoTracks()[0].getSettings();
         vid.classList.toggle('miroir', s.facingMode === 'user');
         appareils = (await navigator.mediaDevices.enumerateDevices()).filter(x => x.kind === 'videoinput');
@@ -503,31 +504,90 @@
     $('#cam-x', v).onclick = fermer;
     v.addEventListener('mousedown', e => { if(e.target === v) fermer(); });
     $('#cam-f', v).onclick = () => { fermer(); $('#c-scan').click(); };
-    $('#cam-sw', v).onclick = () => { if(appareils.length < 2) return; const i = appareils.findIndex(x => x.deviceId === v.dataset.dev); demarrer({deviceId:{exact:appareils[(i + 1) % appareils.length].deviceId}, width:{ideal:1920}, height:{ideal:1080}}); };
+    $('#cam-sw', v).onclick = () => { if(appareils.length < 2) return; const i = appareils.findIndex(x => x.deviceId === v.dataset.dev); demarrer({deviceId:{exact:appareils[(i + 1) % appareils.length].deviceId}, width:{ideal:3840}, height:{ideal:2160}}); };
     $('#cam-cap', v).onclick = async () => {
       const vid = $('#cam-v', v), b = $('#cam-cap', v); if(occupe || !vid.videoWidth) return; occupe = true; b.disabled = true;
-      const cv = document.createElement('canvas'); cv.width = vid.videoWidth; cv.height = vid.videoHeight; cv.getContext('2d').drawImage(vid, 0, 0);
-      const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', .92));
+      const z = zoneCadre(vid, $('.cam-cadre', v)), cv = document.createElement('canvas'); cv.width = z.w; cv.height = z.h; cv.getContext('2d').drawImage(vid, z.x, z.y, z.w, z.h, 0, 0, z.w, z.h);
+      const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', .95));
       msg('Image capturée…');
       const ok = await scanner(new File([blob], 'piece.jpg', {type:'image/jpeg'}), $('#cam-p', v));
       occupe = false;
       if(ok) return fermer();
       b.disabled = false; msg('Lecture incomplète : rapprochez la pièce, évitez les reflets, tenez-la bien droite, puis capturez de nouveau.', true);
     };
-    demarrer({facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}});
+    demarrer({facingMode:{ideal:'environment'}, width:{ideal:3840}, height:{ideal:2160}});
   }
-  /** Scan d'une pièce : lecture (OCR) → champs remplis → identification ; inconnu → formulaire d'inscription ouvert automatiquement. */
+  /** Partie de l'image vidéo située dans le cadre (avec une petite marge) : le décor autour de la pièce gêne la lecture. */
+  function zoneCadre(vid, cadre){
+    const vw = vid.videoWidth, vh = vid.videoHeight, R = vid.getBoundingClientRect(), C = cadre.getBoundingClientRect();
+    if(!R.width || !C.width) return {x:0, y:0, w:vw, h:vh};
+    const k = Math.max(R.width / vw, R.height / vh), dx = (vw * k - R.width) / 2, dy = (vh * k - R.height) / 2, m = .07;
+    let x = (C.left - R.left + dx - C.width * m) / k, y = (C.top - R.top + dy - C.height * m) / k, w = C.width * (1 + 2 * m) / k, h = C.height * (1 + 2 * m) / k;
+    if(vid.classList.contains('miroir')) x = vw - x - w;
+    x = Math.max(0, x); y = Math.max(0, y); w = Math.min(vw - x, w); h = Math.min(vh - y, h);
+    return {x:Math.round(x), y:Math.round(y), w:Math.round(w), h:Math.round(h)};
+  }
+  const nomsConnus = () => { const s = new Set(); B.d.membres.forEach(m => [m.nom, m.epouseDe].forEach(n => String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().split(/\s+/).forEach(w => { if(w.length >= 3) s.add(w); }))); return s; };
+  /** Fiches du registre dont le nom figure parmi les mots lus sur la pièce (aide quand un champ est mal lu). */
+  function fichesProbables(texte){
+    const lus = new Set(Identite.jetons(texte)); if(!lus.size) return [];
+    return B.d.membres.map(m => {
+      const n = Identite.jetons(m.nom+' '+(m.epouseDe||'')).filter(x => x.length > 2), p = Identite.jetons(m.prenoms).filter(x => x.length > 2);
+      const vn = n.filter(x => lus.has(x)).length, vp = p.filter(x => lus.has(x)).length;
+      return {m, s:(vn && vp) ? 10 * vn + 6 * vp : vp >= 2 ? 6 * vp : 0};
+    }).filter(x => x.s >= 12).sort((a, b) => b.s - a.s).slice(0, 4).map(x => x.m);
+  }
+  /** Scan d'une pièce : lecture (OCR en plusieurs passes) → vérification des champs → identification ; inconnu → formulaire d'inscription. */
   async function scanner(fichier, progEl){
     const c = etat.ctrl, prog = progEl || $('#c-prog');
     if(!c.activiteId) return toast('Choisissez d\u2019abord une activité ouverte.', true);
-    const etatProg = p => { if(prog) prog.innerHTML = p == null ? '<span class="pastille p-info">Préparation du module de lecture…</span>' : `<div class="barre-scan"><i style="width:${p}%"></i></div><span class="petit">Lecture de la pièce… ${p} %</span>`; };
+    const etatProg = (p, e) => { if(prog) prog.innerHTML = p == null ? '<span class="pastille p-info">Préparation du module de lecture…</span>' : `<div class="barre-scan"><i style="width:${p}%"></i></div><span class="petit">Lecture de la pièce… ${p} %${e?' · '+esc(e):''}</span>`; };
     try {
-      const texte = await Scan.ocr(fichier, etatProg), r = Scan.analyser(texte);
-      if(r.type) c.type = r.type;
-      c.scanNom = r.nom; c.scanPrenoms = r.prenoms; c.nom = [r.nom, r.prenoms].filter(Boolean).join(' '); c.numero = r.numero || ''; c.naissance = r.naissance || '';
-      if(!c.nom || Identite.jetons(c.nom).length < 2){ c.scan = false; c.scanAuto = false; c.res = null; if(!progEl) dessiner(); toast('Lecture incomplète : vérifiez et complétez le nom, puis identifiez.', true); return false; }
-      c.scan = true; c.scanAuto = true; toast('Pièce lue : '+c.nom); identifier(); return true;
+      const r = await Scan.lire(fichier, {connus:nomsConnus(), progression:etatProg});
+      if(prog) prog.innerHTML = '';
+      const sur = r.fiable.nom && r.fiable.prenoms && (r.fiable.numero || !['cni','passeport',''].includes(r.type));
+      if(sur){ appliquerLecture(r); return true; }
+      if(!r.mots.length && !r.nom && !r.numero) return false;          // rien de lisible : on reste sur la caméra
+      verifierLecture(r); return true;
     } catch(e){ if(prog) prog.innerHTML = '<div class="alerte-boite ko" style="margin-top:8px;padding:10px">'+esc(e.message||'Lecture impossible.')+'<br><span class="petit">Vous pouvez saisir le nom à la main.</span></div>'; return false; }
+  }
+  function appliquerLecture(r){
+    const c = etat.ctrl;
+    if(r.type) c.type = r.type;
+    c.scanNom = r.nom; c.scanPrenoms = r.prenoms; c.nom = [r.nom, r.prenoms].filter(Boolean).join(' '); c.numero = r.numero || ''; c.naissance = r.naissance || '';
+    c.scan = true; c.scanAuto = true; toast('Pièce lue : '+c.nom); identifier();
+  }
+  /** Fenêtre de vérification : image de la pièce, champs lus (modifiables) et mots lus à toucher pour compléter. */
+  function verifierLecture(r){
+    const c = etat.ctrl, probables = fichesProbables(r.brut);
+    const champ = (id, lib, val, ok, type) => `<div><label>${lib} ${val ? (ok ? '<span class="pastille p-ok">lu</span>' : '<span class="pastille p-warn">à vérifier</span>') : '<span class="pastille p-ko">non lu</span>'}</label><input type="${type||'text'}" id="${id}" value="${esc(val||'')}" autocomplete="off"></div>`;
+    const v = modale('Vérifiez la pièce lue', `<img class="apercu-piece" src="${r.apercu}" alt="Pièce photographiée">
+      <div class="grille-champs">
+        <div class="large"><label>Type de pièce</label><select id="v-type">${B.TYPES_PIECE.map(t => `<option value="${t.id}" ${t.id===(r.type||c.type)?'selected':''}>${esc(t.nom)}</option>`).join('')}</select></div>
+        ${champ('v-nom','Nom de famille', r.nom, r.fiable.nom)}${champ('v-pre','Prénoms', r.prenoms, r.fiable.prenoms)}
+        ${champ('v-num','Numéro de la pièce', r.numero, r.fiable.numero)}${champ('v-nai','Date de naissance', r.naissance, r.fiable.naissance, 'date')}</div>
+      ${r.mots.length ? `<div class="petit muet" style="margin-top:10px">Mots lus sur la pièce : touchez le champ à remplir, puis les mots.</div><div class="mots-lus">${r.mots.map(m => `<button type="button" data-mot="${esc(m)}">${esc(m)}</button>`).join('')}</div>` : ''}
+      ${probables.length ? `<div class="petit muet" style="margin-top:10px">Fiches du registre correspondant à la lecture :</div><div class="resultats-ins">${probables.map(m => `<button type="button" class="res-ins" data-fiche="${m.id}"><span>${avatar(m)}</span><span class="res-nom"><b>${esc(nomAffiche(m))}</b><span class="petit muet">${esc(lieu(m))} · ${esc(m.matricule)}</span></span></button>`).join('')}</div>` : ''}`,
+      '<button class="btn btn-contour" id="v-ann">Annuler</button><button class="btn btn-contour" id="v-re">Reprendre la photo</button><button class="btn btn-rouge" id="v-ok">Identifier</button>');
+    v.querySelector('.modale').classList.add('large');
+    let cible = !r.nom ? $('#v-nom', v) : !r.prenoms ? $('#v-pre', v) : $('#v-nom', v), vierge = new Set();
+    const marquer = () => ['v-nom','v-pre'].forEach(id => $('#'+id, v).classList.toggle('cible', $('#'+id, v) === cible));
+    ['v-nom','v-pre'].forEach(id => $('#'+id, v).onfocus = e => { cible = e.target; vierge.delete(cible.id); marquer(); });
+    marquer();
+    v.querySelectorAll('[data-mot]').forEach(k => k.onclick = () => {
+      const m = cible.id === 'v-nom' ? k.dataset.mot.toUpperCase() : Scan.titre(k.dataset.mot);
+      // premier mot touché pour un champ déjà rempli : il le remplace ; les suivants s'ajoutent
+      cible.value = vierge.has(cible.id) ? (cible.value + ' ' + m).trim() : m; vierge.add(cible.id);
+    });
+    v.querySelectorAll('[data-fiche]').forEach(k => k.onclick = () => { const m = B.par('membres', k.dataset.fiche); $('#v-nom', v).value = m.nom; $('#v-pre', v).value = m.prenoms; });
+    $('#v-ann', v).onclick = () => v.remove();
+    $('#v-re', v).onclick = () => { v.remove(); ouvrirCamera(); };
+    $('#v-ok', v).onclick = () => {
+      const nom = $('#v-nom', v).value.trim().toUpperCase(), pre = $('#v-pre', v).value.trim();
+      if(!nom || !pre) return toast('Complétez le nom ET les prénoms (touchez les mots lus, ou saisissez-les).', true);
+      const res = {type:$('#v-type', v).value, nom, prenoms:pre, numero:$('#v-num', v).value.trim().toUpperCase(), naissance:$('#v-nai', v).value};
+      v.remove(); appliquerLecture(res);
+    };
   }
   function enregistrerPresence(m){
     const c = etat.ctrl, d = B.d, act = B.par('activites', c.activiteId);
