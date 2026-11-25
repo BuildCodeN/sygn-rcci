@@ -29,6 +29,9 @@
     const d = B.d, S = B.par('membres', g), R = B.par('membres', r); if(!S || !R || g === r) return null;
     const rec = {id:B.uid('fus'), date:new Date().toISOString(), gardeId:g, retire:JSON.parse(JSON.stringify(R)), sourcesAvant:(S.sources||[]).slice(), champs:{}, parts:[], partsSupp:[], affs:[], affsSupp:[], pres:[], presSupp:[], photo:''};
     ['tel','whatsapp','email','profession','paroisseId','dioceseId','secteurId','civilite','dateNaissance','sexe','ministereId','posteId'].forEach(c => { if(!S[c] && R[c]){ S[c] = R[c]; rec.champs[c] = R[c]; } });
+    // deux numéros différents : celui de la fiche retirée est gardé dans la case WhatsApp si elle est vide
+    const chiffres = s => String(s || '').replace(/\D/g, '');
+    if(!S.whatsapp && R.tel && S.tel && chiffres(S.tel) !== chiffres(R.tel)){ S.whatsapp = R.tel; rec.champs.whatsapp = R.tel; }
     // nom d'épouse / nom de naissance : on ne perd aucune des deux identités
     if(!S.epouseDe && R.epouseDe && norm(R.epouseDe) !== norm(S.nom)){ S.epouseDe = R.epouseDe; rec.champs.epouseDe = R.epouseDe; }
     if(!S.nomEtatCivil && R.nomEtatCivil){ S.nomEtatCivil = R.nomEtatCivil; rec.champs.nomEtatCivil = R.nomEtatCivil; }
