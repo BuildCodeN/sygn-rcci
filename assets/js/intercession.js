@@ -284,7 +284,7 @@
       corps.querySelectorAll('[data-ea]').forEach(b => b.onclick = () => formAff(B.par('affectations', b.dataset.ea)));
       corps.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { if(confirm('Retirer cette personne de cette instance ? (sa fiche est conservée)')){ B.d.affectations = B.d.affectations.filter(a => a.id !== b.dataset.rm); B.tracer('affectation retirée', b.dataset.rm); B.sauver(); redraw(); } });
       const lignesOrg = lst.map(a => { const m = B.par('membres', a.membreId); return [a.rang, a.entite, m.civilite||'', m.nom, m.prenoms, m.epouseDe||'', a.fonction||'', a.fonctionCivile||m.profession||'', m.tel||'', m.email||'']; });
-      const entOrg = ['N°','Diocèse / entité','Civilité','Nom','Prénoms','Épouse de','Fonction dans l\u2019instance','Fonction (vie civile)','Contact','E-mail'];
+      const entOrg = ['N°','Diocèse / entité','Civ.','Nom','Prénoms','Épse','Fonction dans l\u2019instance','Fonction (vie civile)','Contact','E-mail'];
       $('#i-csv').onclick = () => X.exporter.csv(org.nom, entOrg, lignesOrg);
       $('#i-pdf').onclick = () => X.exporter.imprimer(org.nom, org.description, ['N°','Diocèse / entité','Nom et prénoms','Fonction (vie civile)','Contact','E-mail'], lst.map(a => { const m = B.par('membres', a.membreId); return [a.rang, a.entite, nomAffiche(m), a.fonctionCivile||m.profession||'', m.tel||'', m.email||'']; }));
       if(admin) $('#i-add').onclick = () => formResp(org);
