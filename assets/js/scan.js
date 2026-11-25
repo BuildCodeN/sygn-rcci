@@ -87,15 +87,25 @@
     + 'NOM NOMS SURNAME NAME NAMES PRENOM PRENOMS GIVEN FIRST DATE NAISSANCE BIRTH LIEU PLACE SEXE SEX NATIONALITE NATIONALITY IVOIRIENNE IVOIRIEN TAILLE HEIGHT PROFESSION DOMICILE ADRESSE SIGNATURE EXPIRATION EXPIRY DELIVRANCE DELIVREE DELIVRE ISSUE VALABLE JUSQU NUMERO NNI IMMATRICULATION '
     + 'DE LA LE DU DES AU ET OF THE OFFICE ETAT CIVIL IDENTIFICATION ONECI TITULAIRE HOLDER TYPE CODE PAYS COUNTRY NEE DOCUMENT MINISTERE INTERIEUR SECURITE PERSONNELLE PERSONNEL CIV EPOUSE VEUVE USAGE').split(/\s+/));
   const estMention = w => MENTIONS.has(maj(w).replace(/[^A-Z]/g, ''));
+  // vrais mots de deux lettres rencontrés dans les noms ivoiriens ; tout autre mot de 2 lettres au bord est un parasite
+  const COURTS = new Set('BI TA KA YA BA SY LY LI BO DA DO GO GA KO TI SE YE'.split(' '));
+  const longueur = m => m.replace(/['\-]/g, '').length;
+  /** Retire les fragments lus dans le fond de la carte : lettres isolées (« A », « À ») et mots parasites au bord (« PA »). */
+  function sansParasites(mots){
+    let r = mots.filter(m => longueur(m) >= 2);
+    const parasite = m => longueur(m) === 2 && !COURTS.has(maj(m));
+    while(r.length > 1 && parasite(r[0])) r.shift();
+    while(r.length > 1 && parasite(r[r.length-1])) r.pop();
+    return r;
+  }
   /** Une ligne ressemble-t-elle à un nom de personne ? Retourne la valeur nettoyée, sinon ''. */
   function nomPropre(v){
     let s = (v||'').replace(/\b([A-Za-zÀ-ÿ]*)[0158]([A-Za-zÀ-ÿ]+)/g, m => m.replace(/0/g, 'O').replace(/1/g, 'I').replace(/5/g, 'S').replace(/8/g, 'B'));
-    let mots = propre(s).split(' ').filter(Boolean);
-    if(mots.some(estMention)) mots = mots.filter(m => !estMention(m));
-    while(mots.length && mots[0].replace(/['\-]/g, '').length < 2) mots.shift();
-    while(mots.length && mots[mots.length-1].replace(/['\-]/g, '').length < 2) mots.pop();
+    s = s.replace(/(^|\s)([NnDd])\s*['’]\s+(?=[A-Za-zÀ-ÿ])/g, "$1$2'");                    // « N' DRI » → « N'DRI »
+    let mots = propre(s).split(' ').filter(Boolean).filter(m => !estMention(m));
     // petits fragments en minuscules à côté de mots en capitales : bruit de lecture
     if(mots.some(m => m.length > 2 && m === m.toUpperCase())) mots = mots.filter(m => !(m.length <= 3 && m === m.toLowerCase()));
+    mots = sansParasites(mots);
     const r = mots.join(' '), lettres = r.replace(/[^A-Za-zÀ-ÿ]/g, '');
     return (lettres.length >= 2 && mots.length <= 7 && /[AEIOUYaeiouyÀ-ÿ]/.test(lettres)) ? r : '';
   }
@@ -202,6 +212,11 @@
     Object.keys(res.cand).forEach(k => {
       const g = new Map();
       res.cand[k].forEach(c => { const id = cleDe(k, c.v); if(!id) return; let e = g.get(id); if(!e){ e = {v:c.v, total:0, max:0, n:0}; g.set(id, e); } e.total += c.p; e.n++; if(c.p > e.max){ e.max = c.p; e.v = c.v; } });
+      if(k === 'nom' || k === 'prenoms'){
+        const E = [...g.entries()], mots = e => maj(e.v).split(/\s+/);
+        E.forEach(([idL, long]) => { const ml = mots(long); const net = E.find(([idC, court]) => { if(idC === idL || !g.has(idC)) return false; const mc = mots(court); return mc.length < ml.length && mc.every(x => ml.includes(x)) && ml.filter(x => !mc.includes(x)).every(x => x.length <= 3 && !COURTS.has(x)); });
+          if(net && g.has(idL)){ const c = net[1]; c.total += long.total; c.n += long.n; c.max = Math.max(c.max, long.max); g.delete(idL); } });
+      }
       const L = [...g.entries()].map(([id, e]) => { let s = e.max * 3 + e.total; if(k === 'nom' && connus){ const mots = maj(e.v).split(/\s+/); if(mots.some(m => connus.has(m))) s += 8; } return {...e, s}; }).sort((a, b) => b.s - a.s);
       if(L.length){ res[k] = L[0].v; res.fiable[k] = L[0].max >= 9 || (L[0].max >= 4 && L[0].n >= 2); if(L[0].max >= 9) res.source = 'zone MRZ'; }
     });
