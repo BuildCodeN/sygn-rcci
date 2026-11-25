@@ -490,3 +490,12 @@ tr.clic{cursor:pointer} tr.clic:hover td{background:#fff8d6}
 .choix-col input{width:auto;flex:none}
 .apercu-col{max-height:220px;overflow:auto;border:1px solid var(--trait);border-radius:10px;margin-top:4px}
 .apercu-col .tableau td,.apercu-col .tableau th{padding:6px 8px;font-size:12px;white-space:nowrap}
+
+/* v16 — lecture des pièces : cadre au format carte, vérification */
+.cam-scene .cam-cadre{inset:auto;left:50%;top:50%;width:76%;aspect-ratio:1.586;transform:translate(-50%,-50%)}
+@media (max-width:760px){.cam-scene .cam-cadre{width:94%}}
+.apercu-piece{display:block;max-width:100%;max-height:200px;margin:0 auto 12px;border-radius:10px;border:1px solid var(--trait)}
+.mots-lus{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.mots-lus button{border:1px solid var(--trait);background:#fff;border-radius:999px;padding:6px 12px;font:600 13px inherit;cursor:pointer}
+.mots-lus button:hover{background:#fff8d6;border-color:#e4c93a}
+.modale input.cible{border-color:#286FBE;box-shadow:0 0 0 3px rgba(40,111,190,.18)}
