@@ -32,5 +32,30 @@
     const img = photoUrl ? '<img src="'+esc(new URL(photoUrl, location.href).href)+'" alt="">' : '<div class="vide">'+esc(initiales)+'</div>';
     imprimer(titre, 'Fiche individuelle', [], [], '<div class="fiche">'+img+'<table><tbody>'+champs.map(c => '<tr><th>'+esc(c[0])+'</th><td>'+esc(c[1]||'—')+'</td></tr>').join('')+'</tbody></table></div>');
   }
-  window.Exports = {csv, imprimer, fiche, sansImpression:false};
+  /** Avant d'imprimer ou d'exporter : cocher les colonnes à faire apparaître (choix mémorisé), avec aperçu.
+      o = {cle, titre, sousTitre, colonnes:[{id, nom, defaut, val(element, rang)}], elements, modale} */
+  function choisirColonnes(o){
+    const memo = ((Base.d.meta.colonnes || {})[o.cle]) || null, voulu = c => memo ? memo.includes(c.id) : c.defaut;
+    const v = o.modale('Colonnes à faire apparaître', `<p class="petit" style="margin-top:0">${esc(o.titre)} — ${o.elements.length} ligne(s). Décochez les colonnes à masquer.</p>
+      <div class="choix-col">${o.colonnes.map(c => `<label><input type="checkbox" data-col="${c.id}" ${voulu(c) ? 'checked' : ''}> ${esc(c.nom)}</label>`).join('')}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><button type="button" class="btn btn-contour btn-s" id="co-tout">Tout cocher</button><button type="button" class="btn btn-contour btn-s" id="co-def">Colonnes habituelles</button></div>
+      <div class="petit muet">Aperçu (premières lignes)</div><div class="defile apercu-col" id="co-ap"></div>`,
+      '<button class="btn btn-contour" id="co-x">Fermer</button><button class="btn btn-contour" id="co-c">Exporter (Excel)</button><button class="btn btn-rouge" id="co-p">Imprimer / PDF</button>');
+    v.querySelector('.modale').classList.add('large');
+    const q = s => v.querySelector(s), cases = [...v.querySelectorAll('[data-col]')];
+    const caseDe = c => cases.find(k => k.dataset.col === c.id);
+    const choisies = () => o.colonnes.filter(c => caseDe(c).checked);
+    const valeurs = (cols, l) => l.map((e, i) => cols.map(c => c.val(e, i)));
+    const apercu = () => { const cols = choisies(); q('#co-ap').innerHTML = cols.length ? '<table class="tableau"><thead><tr>' + cols.map(c => '<th>' + esc(c.nom) + '</th>').join('') + '</tr></thead><tbody>' + valeurs(cols, o.elements.slice(0, 5)).map(l => '<tr>' + l.map(x => '<td>' + esc(x) + '</td>').join('') + '</tr>').join('') + '</tbody></table>' : '<div class="vide"><b>Aucune colonne cochée</b></div>';
+      q('#co-p').disabled = q('#co-c').disabled = !cols.length; };
+    const retenir = () => { (Base.d.meta.colonnes = Base.d.meta.colonnes || {})[o.cle] = choisies().map(c => c.id); Base.sauver(); };
+    cases.forEach(k => k.onchange = () => { retenir(); apercu(); });
+    q('#co-tout').onclick = () => { cases.forEach(k => k.checked = true); retenir(); apercu(); };
+    q('#co-def').onclick = () => { o.colonnes.forEach(c => caseDe(c).checked = c.defaut); retenir(); apercu(); };
+    q('#co-x').onclick = () => v.remove();
+    q('#co-p').onclick = () => { const cols = choisies(); imprimer(o.titre, o.sousTitre, cols.map(c => c.nom), valeurs(cols, o.elements)); };
+    q('#co-c').onclick = () => { const cols = choisies(); csv(o.titre, cols.map(c => c.nom), valeurs(cols, o.elements)); };
+    apercu();
+  }
+  window.Exports = {csv, imprimer, fiche, choisirColonnes, sansImpression:false};
 })();
