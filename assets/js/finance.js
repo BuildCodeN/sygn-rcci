@@ -15,7 +15,7 @@
   const dioDe = m => (m && B.nom('dioceses', m.dioceseId)) || 'Non renseigné';
   const parDe = m => (m && B.nom('paroisses', m.paroisseId)) || '';
   let C = null;                       // contexte fourni par app.js
-  const S = {act:'', onglet:'liste', q:'', dio:'', sel:null, rech:'', par:'', filtreF:'tous', ongF:'suivi'};
+  const S = {dioF:'', base:'any', act:'', onglet:'liste', q:'', dio:'', sel:null, rech:'', par:'', filtreF:'tous', ongF:'suivi'};
 
   const archivee = a => a && a.statut === 'archivée';
   const total = l => l.reduce((s, c) => s + (+c.montant||0), 0);
@@ -91,7 +91,8 @@
     const dernierE = sel ? c.lignes.find(e => e.id === sel.id) : null;
     const defMontant = sel ? (c.unit ? (dernierE ? dernierE.reste || '' : c.unit) : '') : '';
     const moment = a.statut === 'en cours' ? 'pendant' : 'avant';
-    const resultats = (!sel && S.rech.trim().length >= 2) ? cherche(S.rech) : [];
+    const resultats = (!sel && S.rech.trim().length >= 2) ? cherche(S.rech, S.dioF) : [];
+    const membresDio = (!sel && S.dioF && S.rech.trim().length < 2) ? B.d.membres.filter(m => m.dioceseId === S.dioF).sort((x, y) => (c.lignes.some(e => e.id === x.id) ? 1 : 0) - (c.lignes.some(e => e.id === y.id) ? 1 : 0) || nomM(x).localeCompare(nomM(y), 'fr')) : [];
 
     act.innerHTML = '';
     C.$('#actions').innerHTML = '';
@@ -116,11 +117,14 @@
             <div><label>Mode de paiement</label><select id="i-md">${MODES.map(m => `<option>${m}</option>`).join('')}</select></div>
             <div><label>Remarque</label><input type="text" id="i-no" placeholder="facultatif"></div></div>
           <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-rouge" id="i-ok">Enregistrer le versement</button></div>`
-        : `<div class="outils" style="margin:0"><input type="search" id="i-q" placeholder="Rechercher une personne…" value="${esc(S.rech)}" autocomplete="off"><button class="btn btn-contour" id="i-nv">+ Nouveau membre</button></div>
+        : `<div class="outils" style="margin:0 0 10px"><select id="i-df" style="flex:0 1 260px"><option value="">1. Choisir le diocèse…</option>${B.d.dioceses.slice().sort((x, y) => x.nom.localeCompare(y.nom, 'fr')).map(d => `<option value="${d.id}" ${d.id === S.dioF ? 'selected' : ''}>${esc(d.nom)} (${B.d.membres.filter(m => m.dioceseId === d.id).length} membre${B.d.membres.filter(m => m.dioceseId === d.id).length > 1 ? 's' : ''}${c.lignes.filter(e => e.m && e.m.dioceseId === d.id).length ? ' · ' + c.lignes.filter(e => e.m && e.m.dioceseId === d.id).length + ' inscrit(s)' : ''})</option>`).join('')}</select>
+          <span class="petit muet" style="flex:1 1 200px">${S.dioF ? 'Inscriptions du diocèse de ' + esc(B.nom('dioceses', S.dioF)) : 'Sans choix, la recherche porte sur tous les diocèses.'}</span></div>
+        <div class="outils" style="margin:0"><input type="search" id="i-q" placeholder="${S.dioF ? '2. Rechercher dans ' + esc(B.nom('dioceses', S.dioF)) + '…' : 'Rechercher une personne…'}" value="${esc(S.rech)}" autocomplete="off"><button class="btn btn-contour" id="i-nv">+ Nouveau membre</button></div>
+          ${membresDio.length ? `<div class="petit muet" style="margin:10px 0 4px">Membres du diocèse (${membresDio.length}) — touchez une personne pour enregistrer son versement :</div><div class="resultats-ins" style="max-height:320px;overflow:auto">${membresDio.map(m => { const e = c.lignes.find(x => x.id === m.id); return `<button class="res-ins" data-m="${m.id}"><span>${C.avatar(m)}</span><span class="res-nom"><b>${esc(nomM(m))}</b><span class="petit muet">${esc(parDe(m) || '—')} · ${esc(m.matricule)}</span></span>${e ? `<span class="pastille ${e.solde ? 'p-ok' : 'p-warn'}">${esc(e.solde ? 'soldé' : 'a versé ' + fcfa(e.total))}</span>` : ''}</button>`; }).join('')}</div>` : ''}
           ${resultats.length ? `<div class="resultats-ins">${resultats.map(m => { const e = c.lignes.find(x => x.id === m.id); return `<button class="res-ins" data-m="${m.id}"><span>${C.avatar(m)}</span><span class="res-nom"><b>${esc(nomM(m))}</b><span class="petit muet">${esc(dioDe(m))}${parDe(m) ? ' · ' + esc(parDe(m)) : ''} · ${esc(m.matricule)}</span></span>${e ? `<span class="pastille ${e.solde ? 'p-ok' : 'p-warn'}">${esc(e.solde ? 'déjà soldé' : 'a versé ' + fcfa(e.total))}</span>` : ''}</button>`; }).join('')}</div>`
             : (S.rech.trim().length >= 2 ? '<div class="petit muet" style="margin-top:8px">Aucune fiche trouvée. Utilisez « + Nouveau membre ».</div>' : '')}`}
       </div>`}
-      <div class="onglets" style="margin-top:20px">${[['liste', 'Liste des participants'], ['dio', 'Par diocèse'], ['vers', 'Versements'], ['arch', 'Archives']].map(([k, l]) => `<button data-o="${k}" class="${S.onglet === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="onglets" style="margin-top:20px">${[['liste', 'Liste des participants'], ['dio', 'Par diocèse'], ['vers', 'Versements'], ['rapp', 'Présence et cotisation'], ['arch', 'Archives']].map(([k, l]) => `<button data-o="${k}" class="${S.onglet === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="i-corps"></div>`;
     $('#i-act', v).onchange = e => { S.act = e.target.value; S.sel = null; S.rech = ''; vueInscriptions(v, act, ctx); };
     v.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { S.onglet = b.dataset.o; vueInscriptions(v, act, ctx); });
@@ -131,7 +135,8 @@
       if($('#i-q', v)){
         const q = $('#i-q', v);
         q.oninput = () => { S.rech = q.value; const pos = q.selectionStart; vueInscriptions(v, act, ctx); const q2 = $('#i-q', v); if(q2){ q2.focus(); try { q2.setSelectionRange(pos, pos); } catch(_){} } };
-        $('#i-nv', v).onclick = () => { const t = S.rech.trim().split(/\s+/); C.modifierMembre(null, {nom:(t[0] || '').toUpperCase(), prenoms:t.slice(1).join(' ')}, nv => { S.sel = nv.id; S.rech = ''; vueInscriptions(v, act, ctx); }); };
+        if($('#i-df', v)) $('#i-df', v).onchange = e => { S.dioF = e.target.value; S.rech = ''; vueInscriptions(v, act, ctx); };
+        $('#i-nv', v).onclick = () => { const t = S.rech.trim().split(/\s+/); C.modifierMembre(null, {nom:(t[0] || '').toUpperCase(), prenoms:t.slice(1).join(' '), dioceseId:S.dioF || ''}, nv => { S.sel = nv.id; S.rech = ''; vueInscriptions(v, act, ctx); }); };
         v.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.sel = b.dataset.m; vueInscriptions(v, act, ctx); setTimeout(() => { const m = $('#i-mt', v); if(m) m.focus(); }, 30); });
         if(S.rech || S.focusQ){ q.focus(); const l = q.value.length; try { q.setSelectionRange(l, l); } catch(_){} }
       }
@@ -151,10 +156,10 @@
     }
     corpsOnglet(v, act, ctx, a, c, fige);
   }
-  function cherche(t){
+  function cherche(t, dio){
     const q = Identite.jetons(t); if(!q.length) return [];
     const brut = t.trim().toLowerCase();
-    return B.d.membres.map(m => {
+    return B.d.membres.filter(m => !dio || m.dioceseId === dio).map(m => {
       const hay = Identite.norm([m.nom, m.prenoms, m.epouseDe, m.matricule, m.tel, m.whatsapp].join(' '));
       const ok = q.every(x => hay.includes(Identite.norm(x))) || (m.matricule || '').toLowerCase() === brut;
       return ok ? {m, s:(Identite.norm(m.nom).startsWith(Identite.norm(q[0])) ? 0 : 1)} : null;
@@ -198,6 +203,7 @@
       z.querySelectorAll('[data-an]').forEach(b => b.onclick = () => annulerVersement(B.par('cotisations', b.dataset.an), rafr));
       z.querySelectorAll('[data-re]').forEach(b => b.onclick = () => { const x = B.par('cotisations', b.dataset.re); delete x.annulee; delete x.motif; B.tracer('rétablissement versement', recu(x.numero) + ' — ' + C.user.email); B.sauver(); rafr(); });
     }
+    else if(S.onglet === 'rapp') rapprochementVue(z, a, () => vueInscriptions(v, act, ctx));
     else archivesOnglet(z);
   }
   function modifierVersement(x, apres){
@@ -247,11 +253,60 @@
     z.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => imprimerSnap(L.find(s => s.id === b.dataset.ap)));
   }
 
-  /* ================================================================ FORMATION PUBLIQUE */
+
+  /* ================================================================ PRÉSENCE ↔ COTISATION */
+  const modulesDe = a => B.d.activites.filter(x => x.parentId === a.id).sort((x, y) => (x.moduleNum || 0) - (y.moduleNum || 0));
+  function presenceBase(a, base){
+    const mods = modulesDe(a);
+    if(!mods.length) return {ids:new Set(presents(a.id).keys()), mods, lib:'présents à l’activité'};
+    const sets = mods.map(m => new Set(presents(m.id).keys()));
+    if(base === 'all') return {ids:new Set([...sets[0]].filter(id => sets.every(s => s.has(id)))), mods, lib:'présents aux ' + mods.length + ' modules'};
+    if(/^m\d+$/.test(base) && sets[+base.slice(1)]) return {ids:new Set(sets[+base.slice(1)]), mods, lib:'présents au module ' + (+base.slice(1) + 1)};
+    const u = new Set(); sets.forEach(s => s.forEach(i => u.add(i))); return {ids:u, mods, lib:'présents à au moins un module'};
+  }
+  function rapprochement(a, base){
+    const {ids, mods, lib} = presenceBase(a, base), c = calcul(a), seuil = +a.contribSeuil || +a.contribMontant || 0, pay = new Map(c.lignes.map(e => [e.id, e]));
+    const ok = [], sans = [], abs = [];
+    ids.forEach(id => { const m = B.par('membres', id); if(!m) return; const e = pay.get(id); (e && (!seuil || e.total >= seuil) ? ok : sans).push({m, e}); });
+    c.lignes.forEach(e => { if(!ids.has(e.id) && e.m) abs.push({m:e.m, e}); });
+    const tri = (x, y) => nomM(x.m).localeCompare(nomM(y.m), 'fr'); ok.sort(tri); sans.sort(tri); abs.sort(tri);
+    return {ok, sans, abs, c, seuil, mods, lib, nb:ids.size};
+  }
+  function tablesRapp(r){
+    const L = (x, i) => [i + 1, nomM(x.m), dioDe(x.m), parDe(x.m), x.e ? fcfa(x.e.total) : '—', x.e ? (r.seuil && x.e.total < r.seuil ? 'Partiel' : 'Cotisation versée') : 'Aucun versement'];
+    const ent = ['N°', 'Nom et prénoms', 'Diocèse', 'Paroisse', 'Montant versé', 'Cotisation'];
+    return [{titre:'Présents ayant cotisé (' + r.ok.length + ')', entetes:ent, lignes:r.ok.map(L)},
+      {titre:'Présents sans cotisation complète (' + r.sans.length + ')', entetes:ent, lignes:r.sans.map(L)},
+      {titre:'Ont cotisé mais sont absents — empêchés (' + r.abs.length + ')', entetes:ent, lignes:r.abs.map(L)}];
+  }
+  function snapRapp(a, r){
+    return {kind:'rapprochement', activiteId:a.id, titre:'Présence et cotisation — ' + a.intitule, sous:'Comparaison au ' + dj(new Date().toISOString()) + ' · ' + r.lib,
+      resume:[['Activité', a.intitule], ['Base de présence', r.lib], ['Présents', r.nb], ['Présents ayant cotisé', r.ok.length], ['Présents sans cotisation complète', r.sans.length], ['Cotisants absents', r.abs.length], ['Montant versé par les absents', fcfa(total(r.abs.map(x => ({montant:x.e.total}))))]],
+      tableaux:tablesRapp(r)};
+  }
+  function rapprochementVue(z, a, rafr){
+    const mods = modulesDe(a), r = rapprochement(a, S.base);
+    const opts = mods.length ? `<select id="rp-b" style="width:auto"><option value="any" ${S.base === 'any' ? 'selected' : ''}>Présent à au moins un module</option>${mods.map((_, k) => `<option value="m${k}" ${S.base === 'm' + k ? 'selected' : ''}>Présent au module ${k + 1}</option>`).join('')}<option value="all" ${S.base === 'all' ? 'selected' : ''}>Présent aux ${mods.length} modules</option></select>` : '';
+    const bloc = (titre, cls, L, note) => `<div class="tuile" style="padding:0;overflow:hidden;margin-top:14px"><div style="padding:14px 16px 0"><h2 style="margin:0">${titre} <span class="pastille ${cls}">${L.length}</span></h2><div class="petit muet">${note}</div></div>
+      <div class="defile"><table class="tableau"><thead><tr><th>N°</th><th>Nom et prénoms</th><th>Diocèse</th><th>Paroisse</th><th>Versé</th></tr></thead><tbody>${L.length ? L.map((x, i) => `<tr><td>${i + 1}</td><td><b>${esc(nomM(x.m))}</b></td><td>${esc(dioDe(x.m))}</td><td>${esc(parDe(x.m) || '—')}</td><td>${x.e ? fcfa(x.e.total) + (r.seuil && x.e.total < r.seuil ? '<div class="petit" style="color:#b3261e">partiel</div>' : '') : '<span class="muet">aucun</span>'}</td></tr>`).join('') : '<tr><td colspan="5"><div class="vide"><b>Personne</b></div></td></tr>'}</tbody></table></div></div>`;
+    z.innerHTML = `<div class="outils" style="margin:0 0 12px">${opts}<span class="petit muet" style="flex:1 1 220px">Compare la liste de présence (contrôle, listes importées, cases cochées) à la liste des cotisants.${mods.length ? '' : ''}</span><button class="btn btn-contour" id="rp-c">Exporter (Excel)</button><button class="btn btn-rouge" id="rp-p">Imprimer</button></div>
+      <div class="grille c4 kpis2"><div class="tuile kpi b"><div class="k">Présents</div><div class="v">${r.nb}</div><div class="note">${esc(r.lib)}</div></div>
+        <div class="tuile kpi j"><div class="k">Présents ayant cotisé</div><div class="v">${r.ok.length}</div><div class="note">en règle</div></div>
+        <div class="tuile kpi r"><div class="k">Présents sans cotisation</div><div class="v">${r.sans.length}</div><div class="note">à régulariser</div></div>
+        <div class="tuile kpi"><div class="k">Cotisants absents</div><div class="v">${r.abs.length}</div><div class="note">${fcfa(total(r.abs.map(x => ({montant:x.e.total}))))} — empêchés</div></div></div>
+      ${bloc('Présents sans cotisation', 'p-ko', r.sans, 'Normalement, tout présent a cotisé : ces personnes sont à régulariser.')}
+      ${bloc('Ont cotisé mais absents', 'p-warn', r.abs, 'Cotisation versée, mais pas de présence enregistrée : personnes empêchées.')}
+      ${bloc('Présents ayant cotisé', 'p-ok', r.ok, 'Présents en règle.')}`;
+    if($('#rp-b', z)) $('#rp-b', z).onchange = e => { S.base = e.target.value; rafr(); };
+    $('#rp-p', z).onclick = () => imprimerSnap(snapRapp(a, r));
+    $('#rp-c', z).onclick = () => { const s = snapRapp(a, r); C.exporter.csv(s.titre, ['Catégorie'].concat(s.tableaux[0].entetes), [].concat(...s.tableaux.map((t, k) => t.lignes.map(l => [['Présent et cotisant', 'Présent sans cotisation complète', 'Cotisant absent'][k]].concat(l))))); };
+  }
+
+  /* ================================================================ FORMATION BIBLIQUE */
   const termine = a => ['clôturée', 'archivée'].includes(a.statut);
   function presents(actId){
     const s = new Map();
-    B.d.participations.filter(p => p.activiteId === actId && p.statut !== 'absent').forEach(p => s.set(p.membreId, p.manuel ? 'manuel' : 'liste'));
+    B.d.participations.filter(p => p.activiteId === actId && ['liste de présence', 'présent'].includes(p.statut)).forEach(p => s.set(p.membreId, p.manuel ? 'manuel' : 'liste'));
     B.d.presences.filter(p => p.activiteId === actId).forEach(p => s.set(p.membreId, 'contrôle'));
     return s;
   }
@@ -291,7 +346,7 @@
       tableaux:[{titre:'Présence par module', entetes:['Module', 'Présents', 'Dont présents depuis le module 1', 'Absents parmi ceux du module 1'], lignes:f.mods.map((a, k) => [a.intitule, f.pres[k].size, R.filter(r => r.vu[0] && r.vu[k]).length, R.filter(r => r.vu[0] && !r.vu[k]).length])},
         {titre:'Admis(es)', entetes:ent, lignes:R.filter(r => r.dec === 'admis').map(ligne)},
         {titre:'Recalé(e)s', entetes:ent, lignes:R.filter(r => r.dec === 'recale').map(ligne)},
-        {titre:'En cours et hors cursus', entetes:ent, lignes:R.filter(r => ['encours', 'hors'].includes(r.dec)).map(ligne)}]};
+        {titre:'En cours et hors cursus', entetes:ent, lignes:R.filter(r => ['encours', 'hors'].includes(r.dec)).map(ligne)}].concat(tablesRapp(rapprochement(par, 'any')))};
   }
   function diplomeImprimer(par, r, n){
     C.exporter.imprimer('Diplôme — ' + par.intitule, '', [], [], `<div style="text-align:center;border:7px double #0B2150;padding:46px 30px;margin:14px 0">
@@ -346,8 +401,10 @@
           <td>${r.diplome === 'delivrer' ? `<span class="pastille p-ok">À délivrer</span>${admin && !fige ? `<div style="margin-top:4px"><button class="btn btn-contour btn-s" data-dp="${r.id}">Diplôme</button> <button class="btn btn-contour btn-s" data-dr="${r.id}">Marquer remis</button></div>` : ''}`
             : r.diplome === 'remis' ? `<span class="pastille p-info">Remis le ${esc(dj(r.dip.remisLe))}</span>${admin && !fige ? `<div style="margin-top:4px"><button class="btn btn-contour btn-s" data-dp="${r.id}">Réimprimer</button></div>` : ''}`
             : r.diplome === 'retenu' ? '<span class="pastille p-ko">Retenu</span><div class="petit muet">cotisation non versée</div>' : '<span class="muet">—</span>'}</td></tr>`).join('')
-          : `<tr><td colspan="${mods.length + 6}"><div class="vide"><b>Aucune personne</b>Les listes de présence des modules alimentent ce tableau (contrôle, import de liste, ou case à cocher).</div></td></tr>`}</tbody></table></div></div>`;
+          : `<tr><td colspan="${mods.length + 6}"><div class="vide"><b>Aucune personne</b>Les listes de présence des modules alimentent ce tableau (contrôle, import de liste, ou case à cocher).</div></td></tr>`}</tbody></table></div></div>
+      <h2 style="margin:26px 0 10px">Présence et cotisation</h2><div id="f-rapp"></div>`;
     $('#f-par', v).onchange = e => { S.par = e.target.value; rafr(); };
+    rapprochementVue($('#f-rapp', v), par, rafr);
     $('#f-f', v).onchange = e => { S.filtreF = e.target.value; rafr(); };
     $('#f-p', v).onclick = () => imprimerSnap(snapFormation(par, f));
     $('#f-c', v).onclick = () => { const s = snapFormation(par, f); const t = s.tableaux[1]; const tout = [].concat(s.tableaux[1].lignes, s.tableaux[2].lignes, s.tableaux[3].lignes); C.exporter.csv(s.titre, t.entetes, tout); };
